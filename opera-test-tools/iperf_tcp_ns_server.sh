@@ -15,12 +15,12 @@ case $arg in
         ;;
     -i|--interface)
         shift
-        interface=$2
+        interface=$1
         shift
         ;;
     -s|--ip)
         shift
-        ip=$3
+        ip=$1
         shift
         ;;
 esac
