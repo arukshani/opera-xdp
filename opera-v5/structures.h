@@ -70,11 +70,11 @@ struct bpool_params {
 #define SCHED_PRI__DEFAULT	0
 
 #ifndef WORKER_INFO_CSV
-#define WORKER_INFO_CSV "/opt/bpf-examples/opera-setup-cloudlab/all_worker_info.csv"
+#define WORKER_INFO_CSV "/home/dathapathu/emulator/github_code/all_worker_info.csv"
 #endif
 
 #ifndef START_THREAD_CORE_ID
-#define START_THREAD_CORE_ID 17
+#define START_THREAD_CORE_ID 13
 #endif
 
 struct burst_rx {
