@@ -13,7 +13,3 @@ sudo taskset --cpu-list 11 ./opera_emulator_v4 10.1.0.1 configs/node-1-link.csv 
 sudo taskset --cpu-list 11 ./opera_emulator_v4 10.1.0.2 configs/node-2-link.csv /dev/ptp0 120 1 1 
 ```
 
-### This is version 5 
-```
-
-```

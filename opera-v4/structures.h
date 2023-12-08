@@ -64,7 +64,7 @@ struct bpool_params {
 #endif
 
 #ifndef NUM_OF_PER_DEST_QUEUES
-#define NUM_OF_PER_DEST_QUEUES 3
+#define NUM_OF_PER_DEST_QUEUES 32
 #endif
 
 #define SCHED_PRI__DEFAULT	0
