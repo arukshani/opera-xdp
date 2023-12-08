@@ -67,10 +67,15 @@ struct bpool_params {
 #define NUM_OF_PER_DEST_QUEUES 3
 #endif
 
-//Total number of NIC rx and tx threads
-// #ifndef NIC_THREAD_COUNT
-// #define NIC_THREAD_COUNT 4
-// #endif
+#define SCHED_PRI__DEFAULT	0
+
+#ifndef WORKER_INFO_CSV
+#define WORKER_INFO_CSV "/opt/bpf-examples/opera-setup-cloudlab/all_worker_info.csv"
+#endif
+
+#ifndef START_THREAD_CORE_ID
+#define START_THREAD_CORE_ID 17
+#endif
 
 struct burst_rx {
 	u64 addr[MAX_BURST_RX];
@@ -277,5 +282,3 @@ static const struct sched_map {
 	{ "FIFO", SCHED_FIFO },
 	{ NULL }
 };
-
-#define SCHED_PRI__DEFAULT	0

@@ -3,7 +3,9 @@
 # Actual server is running on the other side on root
 
 num_namespaces=0
+server="192.168.1.2"
 bandwidth="50000M"
+nic_local_numa_node=$(cat /sys/class/net/enp202s0f0np0/device/numa_node)
 
 for arg in "$@"
 do
@@ -13,21 +15,8 @@ case $arg in
         num_namespaces=$1
         shift
         ;;
-    -i|--interface)
-        shift
-        interface=$2
-        shift
-        ;;
-    -s|--ip)
-        shift
-        ip=$3
-        shift
-        ;;
 esac
 done
-
-server=$ip
-nic_local_numa_node=$(cat /sys/class/net/$interface/device/numa_node)
 
 myArray=("blue" "red" "ns12" "ns13" "ns15" "ns16" "ns17" "ns18" "ns19" "ns20" "ns21" "ns22" "ns23" "ns24")
 
@@ -43,5 +32,6 @@ done
 )
 
 inter_out=$(echo $output| grep -o -P '(?<=sender).*?(?=receiver)')
+# echo $inter_out
 sender_total_tput=$(echo $inter_out | grep -Po '[0-9.]*(?= Gbits/sec)' | awk '{sum+=$1} END {print sum}')
 echo $sender_total_tput

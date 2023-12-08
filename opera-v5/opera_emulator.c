@@ -2061,7 +2061,7 @@ int main(int argc, char **argv)
 	n_threads = (n_nic_ports * 2) + (veth_port_count * 2);
 	printf("Total number of rx and tx threads : %d \n", n_threads);
 
-	int thread_core_id = 13;
+	int thread_core_id = START_THREAD_CORE_ID;
 	for (x = 0; x < n_threads; x++)
 	{
 		thread_data[x].cpu_core_id = thread_core_id; 
@@ -2113,7 +2113,7 @@ int main(int argc, char **argv)
 	mg_map_init(&mac_table, sizeof(struct mac_addr), 32);
 	mg_map_init(&ip_table, sizeof(int), 32);
 	// FILE *file = fopen("/tmp/all_worker_info.csv", "r");
-	FILE *file = fopen("/home/dathapathu/emulator/github_code/all_worker_info.csv", "r");
+	FILE *file = fopen(WORKER_INFO_CSV, "r");
 	if (file)
 	{
 		char buffer[1024], *ptr;
