@@ -1,6 +1,15 @@
 ### All Nodes
+
+### Intel machine turn off init on alloc
 ```
-cd bpf-examples/opera-setup-yeti/
+sudo vi  /etc/default/grub
+GRUB_CMDLINE_LINUX_DEFAULT="init_on_alloc=0 init_on_free=0 intel_iommu=off"
+sudo update-grub
+and sudo reboot
+```
+
+```
+cd /home/dathapathu/emulator/github_code/opera-xdp/opera-setup-yeti
 ./setup_master.sh
 ```
 
@@ -8,6 +17,8 @@ cd bpf-examples/opera-setup-yeti/
 ```
 sudo ip addr add 10.1.0.1/24 dev ens4
 sudo ip addr add 10.1.0.2/24 dev ens4
+sudo ip addr add 10.1.0.3/24 dev ens4
+sudo ip addr add 10.1.0.4/24 dev ens4
 sudo ip link set dev ens4 up
 ```
 
@@ -28,9 +39,15 @@ python3 setup_mac.py
 scp arp records
 python3 setup_arp.py yeti-00.sysnet.ucsd.edu.csv
 python3 setup_arp.py yeti-01.sysnet.ucsd.edu.csv
+python3 setup_arp.py yeti-02.sysnet.ucsd.edu.csv
+python3 setup_arp.py yeti-03.sysnet.ucsd.edu.csv
 ```
 
+### HW Queue setup
 ```
+sudo ethtool -L ens4 combined 16
+sudo ethtool -G ens4 rx 2048
+sudo ethtool -G ens4 tx 2048
 sudo set_irq_affinity.sh ens4
 ```
 

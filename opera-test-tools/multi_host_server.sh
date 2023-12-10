@@ -23,6 +23,11 @@ case $arg in
         ip=$1
         shift
         ;;
+    -v|--ip)
+        shift
+        veth=$1
+        shift
+        ;;
 esac
 done
 
@@ -31,14 +36,13 @@ nic_local_numa_node=$(cat /sys/class/net/$interface/device/numa_node)
 
 myArray=("blue" "red" "ns12" "ns13" "ns15" "ns16" "ns17" "ns18" "ns19" "ns20" "ns21" "ns22" "ns23" "ns24")
 
-
-# cpu_core_id=$(echo "63" | bc)
-
-for i in $(seq 0 $num_namespaces);
+x=0
+for i in $(seq $veth $num_namespaces);
 do
-    # cpu_core_id=$(echo "$cpu_core_id+2" | bc)
-    port=$(echo "5100+$i" | bc)
+    port=$(echo "5100+$x" | bc)
     numactl -N $nic_local_numa_node ip netns exec ${myArray[$i]} iperf3 -s $server -p $port &
-    # sudo taskset --cpu-list $cpu_core_id ip netns exec ${myArray[$i]} iperf3 -s $server -p $port &
+    x=$(echo "1+$x" | bc)
 done
+
+
 

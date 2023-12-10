@@ -2243,13 +2243,16 @@ int main(int argc, char **argv)
 		
         // veth->nic (nic tx: pull from local and non-local)
         int k;
+        int internal_id = queue_index;
 		for (k = 0; k < assigned_queue_count; k++)
 		{
-			t->ports_tx[k] = ports[queue_index];
-			t->local_dest_queue_array[k] = local_per_dest_queue[queue_index];
+			t->ports_tx[k] = ports[internal_id];
+			t->local_dest_queue_array[k] = local_per_dest_queue[internal_id];
 			// printf("NIC TX: port & queue %d : thread %d: \n", queue_index, i);
-			queue_index++;
+			// queue_index++;
+            internal_id = internal_id + 4;
 		}
+        queue_index++;
 		t->assigned_queue_count = assigned_queue_count;
     
 		t->n_ports_rx = 1;

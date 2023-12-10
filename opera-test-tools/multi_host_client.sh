@@ -18,27 +18,41 @@ case $arg in
         interface=$1
         shift
         ;;
-    -s|--ip)
+    -s1|--ip1)
         shift
-        ip=$1
+        ip1=$1
+        shift
+        ;;
+    -s2|--ip2)
+        shift
+        ip2=$1
+        shift
+        ;;
+    -v|--veth)
+        shift
+        veth=$1
         shift
         ;;
 esac
 done
 
-server=$ip
+server1=$ip1
+server2=$ip2
 nic_local_numa_node=$(cat /sys/class/net/$interface/device/numa_node)
 
 myArray=("blue" "red" "ns12" "ns13" "ns15" "ns16" "ns17" "ns18" "ns19" "ns20" "ns21" "ns22" "ns23" "ns24")
+serverArray=("10.1.0.2" "10.1.0.2" "10.1.0.3" "10.1.0.3" "10.1.0.4" "10.1.0.4")
 
-# cpu_core_id=$(echo "63" | bc)
+x=0
 output=$(
 for i in $(seq 0 $num_namespaces); do
-    # cpu_core_id=$(echo "$cpu_core_id+2" | bc)
-    port=$(echo "5100+$i" | bc);
-    # echo $cpu_core_id
-    numactl -N $nic_local_numa_node ip netns exec ${myArray[$i]} iperf3 -c $server -p $port -t 30 -f g &
-    #  sudo taskset --cpu-list $cpu_core_id ip netns exec ${myArray[$i]} iperf3 -c $server -p $port -t 30 -f g &
+    port=$(echo "5100+$x" | bc);
+    numactl -N $nic_local_numa_node ip netns exec ${myArray[$i]} iperf3 -c ${serverArray[$i]} -p $port -t 30 -f g &
+    x=$(echo "1+$x" | bc)
+    if [ "$port" -eq 5101 ]; then
+        port=5100
+        x=0
+    fi
 done
 )
 
