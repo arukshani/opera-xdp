@@ -340,11 +340,11 @@ int main(int argc, char **argv)
 	}
 
 	/* VETH RX Queue Assignment. */
-	struct thread_data *t = &thread_data[0];
-	t->ports_rx[0] = ports[1]; //veth port
+	struct thread_data *t_vrx = &thread_data[0];
+	t_vrx->ports_rx[0] = ports[1]; //veth port
 	for (v=0; v < NUM_OF_PER_DEST_QUEUES; v++) 
 	{
-		t->local_dest_queue_array[v] = local_per_dest_queue[v];
+		t_vrx->local_dest_queue_array[v] = local_per_dest_queue[v];
 	}
 
 	/* VETH RX Threads. */
@@ -360,17 +360,22 @@ int main(int argc, char **argv)
 		// return -1;
 	}
 
-	/* NIC TX Threads. */
-	// status = pthread_create(&threads[1],
-	// 						NULL,
-	// 						thread_func_nic_tx,
-	// 						&thread_data[1]);
-	// printf("Create VETH RX thread %d: %d \n", 1, thread_data[1].cpu_core_id);
+	/* NIC TX Queue Assignment. */
+	struct thread_data *t_ntx = &thread_data[1];
+	t_ntx->ports_tx[0] = ports[0]; //NIC port
+	t_ntx->local_dest_queue_array[0] = local_per_dest_queue[1]; //only 1 queue is assigned
 
-	// if (status) {
-	// 	printf("Thread %d creation failed.\n", i);
-	// 	// return -1;
-	// }
+	/* NIC TX Threads. */
+	status = pthread_create(&threads[1],
+							NULL,
+							thread_func_nic_tx,
+							&thread_data[1]);
+	printf("Create VETH RX thread %d: %d \n", 1, thread_data[1].cpu_core_id);
+
+	if (status) {
+		printf("Thread %d creation failed.\n", i);
+		// return -1;
+	}
 
 	/* NIC RX Threads. */
 	// status = pthread_create(&threads[2],

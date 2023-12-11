@@ -8,7 +8,7 @@ static inline void ether_addr_copy_assignment(u8 *dst, const u8 *src)
 	a[2] = b[2];
 }
 
-static void process_rx_packet(void *data, struct port_params *params, uint32_t len, u64 addr, u32 *queue_index)
+static void process_rx_packet(void *data, struct port_params *params, uint32_t len, u64 addr, struct return_process_rx *return_val)
 {
     int is_nic = strcmp(params->iface, nic_iface);
     if (!is_nic)
@@ -57,7 +57,7 @@ static void process_rx_packet(void *data, struct port_params *params, uint32_t l
         ether_addr_copy_assignment(outer_eth_hdr->h_source, &out_eth_src);
 		struct ip_set *dest_ip_index = mg_map_get(&ip_table, inner_ip_hdr_tmp->daddr);
 		struct mac_addr *dest_mac_val = mg_map_get(&mac_table, dest_ip_index->index);
-        queue_index = dest_ip_index->index - 1;
+		return_val->ring_buf_index = dest_ip_index->index - 1;
 
         ether_addr_copy_assignment(outer_eth_hdr->h_dest, dest_mac_val->bytes);
 
@@ -101,7 +101,7 @@ static void process_rx_packet(void *data, struct port_params *params, uint32_t l
 		} else if (strcmp(params->iface, "vethout34") == 0) {
 			gre_hdr->flags = 12;
 		}
-        // return_val->new_len = new_len;
+        return_val->new_len = new_len;
                             
     }
 }
@@ -135,6 +135,7 @@ port_rx_burst(struct port *p, struct mpmc_queue *local_dest_queue[NUM_OF_PER_DES
 		return 0;
 	}
 
+	struct return_process_rx *ret_val = calloc(1, sizeof(struct return_process_rx));
     for (i = 0; i < n_pkts; i++)
 	{
 		u64 addr_rx = xsk_ring_cons__rx_desc(&p->rxq, pos + i)->addr;
@@ -142,18 +143,23 @@ port_rx_burst(struct port *p, struct mpmc_queue *local_dest_queue[NUM_OF_PER_DES
         //process each packet and copy to per dest queue
         u64 addr = xsk_umem__add_offset_to_addr(addr_rx);
 		u8 *pkt = xsk_umem__get_data(p->params.bp->addr, addr);
-        process_rx_packet(pkt, &p->params,len, addr_rx, &queue_index);
+        process_rx_packet(pkt, &p->params,len, addr_rx, ret_val);
 
 		if (local_dest_queue[queue_index] != NULL)
 		{
-			int ret = mpmc_queue_push(local_dest_queue[queue_index], (void *) pkt);
+			struct burst_tx *btx = calloc(1, sizeof(struct burst_tx));
+			// btx->pkt = pkt;
+			memcpy(btx->pkt, pkt, ret_val->new_len);
+			btx->len = ret_val->new_len;
+
+			int ret = mpmc_queue_push(local_dest_queue[queue_index], (void *) btx);
 			if (!ret) 
 			{
 				printf("local_dest_queue is full \n");
 				//Release buffers to pool
-				bcache_prod(p->bc, addr_rx);
+				// bcache_prod(p->bc, addr_rx);
 			}
-			// bcache_prod(p->bc, addr_rx);
+			bcache_prod(p->bc, addr_rx);
 		}
 		else
 		{
@@ -161,6 +167,7 @@ port_rx_burst(struct port *p, struct mpmc_queue *local_dest_queue[NUM_OF_PER_DES
 		}
 
 	}
+	free(ret_val);
 
     xsk_ring_cons__release(&p->rxq, n_pkts);
 	p->n_pkts_rx += n_pkts;
@@ -192,4 +199,61 @@ port_rx_burst(struct port *p, struct mpmc_queue *local_dest_queue[NUM_OF_PER_DES
 	xsk_ring_prod__submit(&bp->umem_fq, n_pkts);
 
 	return n_pkts;
+}
+
+static inline void
+port_tx_burst_collector(struct port *p, struct burst_tx_collector *b, int free_btx, int wait_all)
+{
+	struct bpool *bp = p->bc->bp;
+	u32 n_pkts, pos, i;
+	int status;
+
+	/* UMEM CQ. */
+	n_pkts = p->params.bp->umem_cfg.comp_size;
+
+	n_pkts = xsk_ring_cons__peek(&bp->umem_cq, n_pkts, &pos);
+
+
+	for (i = 0; i < n_pkts; i++)
+	{
+		u64 addr = *xsk_ring_cons__comp_addr(&bp->umem_cq, pos + i);
+
+		bcache_prod_tx(p->bc, addr);
+	}
+
+	xsk_ring_cons__release(&bp->umem_cq, n_pkts);
+
+	/* TXQ. */
+	n_pkts = b->n_pkts;
+
+	for (;;)
+	{
+		status = xsk_ring_prod__reserve(&p->txq, n_pkts, &pos);
+		if (status == n_pkts)
+		{
+			// printf("status == n_pkts \n");
+			break;
+		}
+
+		if (xsk_ring_prod__needs_wakeup(&p->txq))
+			sendto(xsk_socket__fd(p->xsk), NULL, 0, MSG_DONTWAIT,
+			       NULL, 0);
+
+		
+	}
+
+	for (i = 0; i < n_pkts; i++)
+	{
+		u8 *pkt = xsk_umem__get_data(p->params.bp->addr, b->addr[i]);
+		memcpy(pkt, b->pkt[i], b->len[i]);
+		xsk_ring_prod__tx_desc(&p->txq, pos + i)->addr = b->addr[i];
+		xsk_ring_prod__tx_desc(&p->txq, pos + i)->len = b->len[i];
+	}
+
+	xsk_ring_prod__submit(&p->txq, n_pkts);
+	if (xsk_ring_prod__needs_wakeup(&p->txq))
+			sendto(xsk_socket__fd(p->xsk), NULL, 0, MSG_DONTWAIT,
+			       NULL, 0);
+
+	p->n_pkts_tx += n_pkts;
 }

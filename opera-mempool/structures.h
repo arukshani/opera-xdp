@@ -42,14 +42,6 @@ struct config
 #define MAX_PORTS 24
 #endif
 
-#ifndef RX_BURST_COUNT
-#define RX_BURST_COUNT 20
-#endif
-
-#ifndef TX_BURST_COUNT
-#define TX_BURST_COUNT 20
-#endif
-
 struct bpool_params {
 	u32 n_buffers;
 	u32 buffer_size;
@@ -116,8 +108,14 @@ struct bcache {
 	u64 *slab_cons;
 	u64 *slab_prod;
 
+	u64 *slab_cons_tx;
+	u64 *slab_prod_tx;
+
 	u64 n_buffers_cons;
 	u64 n_buffers_prod;
+
+	u64 n_buffers_cons_tx;
+	u64 n_buffers_prod_tx;
 };
 
 struct port {
@@ -158,38 +156,16 @@ struct mpmc_queue *veth_side_queue[13];
 struct mpmc_queue *local_per_dest_queue[NUM_OF_PER_DEST_QUEUES];
 struct mpmc_queue *non_local_per_dest_queue[NUM_OF_PER_DEST_QUEUES];
 
-//============================THREAD RELATED==========================
-#ifndef START_THREAD_CORE_ID
-#define START_THREAD_CORE_ID 33
-#endif
-
-#ifndef MAX_PORTS_PER_THREAD
-#define MAX_PORTS_PER_THREAD 1
-#endif
-
-#ifndef MAX_THREADS
-#define MAX_THREADS 64
-#endif
-
-struct thread_data {
-	struct port *ports_rx[MAX_PORTS_PER_THREAD];
-	struct port *ports_tx[MAX_PORTS_PER_THREAD];
-	// u32 n_ports_rx;
-	// struct burst_rx burst_rx;
-	// struct burst_tx_collector burst_tx_collector[MAX_PORTS_PER_THREAD];
-	u32 cpu_core_id;
-	int quit;
-	struct mpmc_queue *local_dest_queue_array[NUM_OF_PER_DEST_QUEUES];
-	// struct mpmc_queue *non_local_dest_queue_array[NUM_OF_PER_DEST_QUEUES];
-	// struct mpmc_queue *veth_side_queue_array[13];
-	// int assigned_queue_count;
-};
-
-static pthread_t threads[MAX_THREADS];
-static struct thread_data thread_data[MAX_THREADS];
-static int quit;
 
 //============================PACKET RELATED==========================
+
+#ifndef RX_BURST_COUNT
+#define RX_BURST_COUNT 20
+#endif
+
+#ifndef TX_BURST_COUNT
+#define TX_BURST_COUNT 20
+#endif
 
 #ifndef WORKER_INFO_CSV
 #define WORKER_INFO_CSV "/home/dathapathu/emulator/github_code/all_worker_info.csv"
@@ -209,7 +185,58 @@ struct mac_addr {
    unsigned char bytes[ETH_ALEN+1];
 };
 
+struct burst_tx_collector {
+	u64 addr[TX_BURST_COUNT];
+	u32 len[TX_BURST_COUNT];
+	uint8_t *pkt[TX_BURST_COUNT];
+	u32 n_pkts;
+};
+
+struct burst_tx {
+	u64 addr;
+	u32 len;
+	uint8_t *pkt;
+	u32 n_pkts;
+};
+
+struct return_process_rx { 
+	int new_len;
+	int ring_buf_index;
+	int which_veth;
+};
+
 mg_Map mac_table; //mac table
 mg_Map ip_table; //ip table
 unsigned char out_eth_src[ETH_ALEN+1];
 uint32_t src_ip;
+
+//============================THREAD RELATED==========================
+#ifndef START_THREAD_CORE_ID
+#define START_THREAD_CORE_ID 33
+#endif
+
+#ifndef MAX_PORTS_PER_THREAD
+#define MAX_PORTS_PER_THREAD 1
+#endif
+
+#ifndef MAX_THREADS
+#define MAX_THREADS 64
+#endif
+
+struct thread_data {
+	struct port *ports_rx[MAX_PORTS_PER_THREAD];
+	struct port *ports_tx[MAX_PORTS_PER_THREAD];
+	// u32 n_ports_rx;
+	// struct burst_rx burst_rx;
+	struct burst_tx_collector burst_tx_collector[MAX_PORTS_PER_THREAD];
+	u32 cpu_core_id;
+	int quit;
+	struct mpmc_queue *local_dest_queue_array[NUM_OF_PER_DEST_QUEUES];
+	// struct mpmc_queue *non_local_dest_queue_array[NUM_OF_PER_DEST_QUEUES];
+	// struct mpmc_queue *veth_side_queue_array[13];
+	// int assigned_queue_count;
+};
+
+static pthread_t threads[MAX_THREADS];
+static struct thread_data thread_data[MAX_THREADS];
+static int quit;
