@@ -7,7 +7,7 @@ BPF_TARGETS    += nic_kern
 LDLIBS += -lpthread
 
 # USER_TARGETS_OBJS := map.o
-# USER_TARGETS_OBJS := map.o mpmc_queue.o memory.o
+USER_TARGETS_OBJS := map.o mpmc_queue.o memory.o
 
 LIB_DIR = ../lib
 

@@ -65,8 +65,14 @@
 #include <limits.h>
 #include <linux/ptp_clock.h>
 
+#include "mpmc_queue.h"
+#include "memory.h"
+#include "map.h"
+#include "common_funcs.h"
 #include "structures.h"
 #include "plumbing.h"
+#include "packet_process.h"
+#include "thread_functions.h"
 
 
 static void
@@ -82,9 +88,9 @@ int main(int argc, char **argv)
 {
     struct in_addr *ifa_inaddr;
 	struct in_addr addr;
-	int n,i,x,y,z;
+	int n,i,x,y,z,w,v;
 
-	if (argc != 5)
+	if (argc != 6)
 	{
 		fprintf(stderr, "Usage: getifaddr <IP>\n");
 		return EXIT_FAILURE;
@@ -113,6 +119,10 @@ int main(int argc, char **argv)
 	n_nic_ports = atoi(num_nic_qs);
 	printf("Number of NIC Queues : %d \n", n_nic_ports);
 
+	char *print_statistics = argv[5];
+	int print_stats = atoi(print_statistics);
+	printf("Print Statistics : %d \n", print_stats);
+
     for (ifa = ifaddr, n = 0; ifa != NULL; ifa = ifa->ifa_next, n++)
 	{
 		if (ifa->ifa_addr == NULL)
@@ -128,6 +138,54 @@ int main(int argc, char **argv)
 			printf("Interface: %s\n", ifa->ifa_name);
 			nic_iface = ifa->ifa_name;
 		}
+	}
+
+	//=======================PACKET RELATED=======================================
+	getMACAddress(nic_iface, out_eth_src);
+	mg_map_init(&mac_table, sizeof(struct mac_addr), 32);
+	mg_map_init(&ip_table, sizeof(int), 32);
+	FILE *file = fopen(WORKER_INFO_CSV, "r");
+	if (file)
+	{
+		char buffer[1024], *ptr;
+		int dest_index = 1;
+		while (fgets(buffer, 1024, file))
+		{
+			// printf("~~~~~~NODE~~~~~~~~~\n");
+			ptr = strtok(buffer, ",");
+			int col_index = 1;
+			while (ptr != NULL)
+			{
+				// printf("'%s'\n", ptr);
+				if (col_index == 8)
+				{
+					uint32_t dest = inet_addr(ptr);
+					struct ip_set local_ip_index = {.index = dest_index};
+					mg_map_add(&ip_table, dest, &local_ip_index);
+					struct ip_set *dest_ip_index = mg_map_get(&ip_table, dest);
+					// printf("dest_ip_index after %d \n", dest_ip_index->index);
+				}
+				if (col_index == 3)
+				{
+					// printf("mac addr = %s\n", ptr);
+					uint8_t mac_addr[6];
+					sscanf(ptr, "%x:%x:%x:%x:%x:%x",
+						   &mac_addr[0],
+						   &mac_addr[1],
+						   &mac_addr[2],
+						   &mac_addr[3],
+						   &mac_addr[4],
+						   &mac_addr[5]) < 6;
+					struct mac_addr *dest_mac = calloc(1, sizeof(struct mac_addr));
+					__builtin_memcpy(dest_mac->bytes, mac_addr, sizeof(mac_addr));
+					mg_map_add(&mac_table, dest_index, dest_mac);
+				}
+				ptr = strtok(NULL, ",");
+				col_index++;
+			}
+			dest_index++;
+		}
+		fclose(file);
 	}
 
     n_ports = num_of_nses + n_nic_ports;
@@ -186,9 +244,112 @@ int main(int argc, char **argv)
 		enter_xsks_into_map(x);
 	}
 
+	printf("===========Queue creation============================\n");
+	struct mpmc_queue return_path_veth_queue[13];
+	struct mpmc_queue local_dest_queue[NUM_OF_PER_DEST_QUEUES];
+	struct mpmc_queue non_local_dest_queue[NUM_OF_PER_DEST_QUEUES];
 
-    //=============FREE MEMORY===============
+	// local queues
+	for (i = 0; i < NUM_OF_PER_DEST_QUEUES; i++)
+	{
+		mpmc_queue_init(&local_dest_queue[i], MAX_BURST_OBJS, &memtype_heap);
+		local_per_dest_queue[i] = &local_dest_queue[i];
+	}
+	// non-local queues
+	for (i = 0; i < NUM_OF_PER_DEST_QUEUES; i++)
+	{
+		mpmc_queue_init(&non_local_dest_queue[i], MAX_BURST_OBJS, &memtype_heap);
+		non_local_per_dest_queue[i] = &non_local_dest_queue[i];
+	}
+	// veth side queues
+    for (w = 0; w < n_veth_ports; w++)
+	{
+		mpmc_queue_init(&return_path_veth_queue[w], MAX_BURST_OBJS, &memtype_heap);
+		veth_side_queue[w] = &return_path_veth_queue[w];
+	}
+
+	printf("===========Thread creation============================\n");
+	n_threads = 4; //TODO:based on number of ports
+	printf("Total number of RX and TX threads : %d \n", n_threads);
+	int thread_core_id = START_THREAD_CORE_ID;
+	for (x = 0; x < n_threads; x++)
+	{
+		thread_data[x].cpu_core_id = thread_core_id; 
+		thread_core_id = thread_core_id + 2;
+	}
+
+	/* VETH RX Queue Assignment. */
+	struct thread_data *t = &thread_data[0];
+	t->ports_rx[0] = ports[1]; //veth port
+	for (v=0; v < NUM_OF_PER_DEST_QUEUES; v++) 
+	{
+		t->local_dest_queue_array[v] = local_per_dest_queue[v];
+	}
+
+	/* VETH RX Threads. */
+	int status;
+	status = pthread_create(&threads[0],
+							NULL,
+							thread_func_veth_rx,
+							&thread_data[0]);
+	printf("Create VETH RX thread %d: %d \n", 0, thread_data[0].cpu_core_id);
+
+	if (status) {
+		printf("Thread %d creation failed.\n", i);
+		// return -1;
+	}
+
+	/* NIC TX Threads. */
+	status = pthread_create(&threads[1],
+							NULL,
+							thread_func_nic_tx,
+							&thread_data[1]);
+	printf("Create VETH RX thread %d: %d \n", 1, thread_data[1].cpu_core_id);
+
+	if (status) {
+		printf("Thread %d creation failed.\n", i);
+		// return -1;
+	}
+
+	/* NIC RX Threads. */
+	status = pthread_create(&threads[2],
+							NULL,
+							thread_func_nic_rx,
+							&thread_data[2]);
+	printf("Create NIC RX thread %d: %d \n", 2, thread_data[2].cpu_core_id);
+
+	if (status) {
+		printf("Thread %d creation failed.\n", i);
+		// return -1;
+	}
+
+	/* VETH TX Threads. */
+	status = pthread_create(&threads[3],
+							NULL,
+							thread_func_veth_tx,
+							&thread_data[3]);
+	printf("Create VETH TX thread %d: %d \n", 3, thread_data[3].cpu_core_id);
+
+	if (status) {
+		printf("Thread %d creation failed.\n", i);
+		// return -1;
+	}
+
+	printf("All threads created successfully.\n");
+
+	
+
+	signal(SIGINT, signal_handler);
+	signal(SIGTERM, signal_handler);
+	signal(SIGABRT, signal_handler);
+
+	/* Threads completion. */
+	printf("Quit.\n");
+
+    //============================================FREE MEMORY============================================
     freeifaddrs(ifaddr);
+	mg_map_cleanup(&ip_table);
+	mg_map_cleanup(&mac_table);
 
     for (i = 0; i < n_ports; i++)
     {
@@ -199,4 +360,22 @@ int main(int argc, char **argv)
     printf("===========Remove XDP Programs from NIC and VETHS============\n");
     remove_xdp_program_nic();
 	remove_xdp_program_veth();
+
+	for (w = 0; w < n_veth_ports; w++)
+	{
+		int ret = mpmc_queue_destroy(veth_side_queue[w]);
+		if (ret)
+			printf("Failed to destroy queue: %d", ret);
+	}
+
+	for (w = 0; w < NUM_OF_PER_DEST_QUEUES; w++)
+	{
+		int ret = mpmc_queue_destroy(local_per_dest_queue[w]);
+		if (ret)
+			printf("Failed to destroy queue: %d", ret);
+
+		ret = mpmc_queue_destroy(non_local_per_dest_queue[w]);
+		if (ret)
+			printf("Failed to destroy queue: %d", ret);
+	}
 }

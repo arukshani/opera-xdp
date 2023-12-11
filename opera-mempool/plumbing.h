@@ -465,6 +465,49 @@ bcache_cons(struct bcache *bc)
 	return buffer;
 }
 
+static inline void
+bcache_prod(struct bcache *bc, u64 buffer)
+{
+	struct bpool *bp = bc->bp;
+	u64 n_buffers_per_slab = bp->params.n_buffers_per_slab;
+	u64 n_buffers_prod = bc->n_buffers_prod;
+	u64 n_slabs_available;
+	u64 *slab_empty;
+
+	/*
+	 * Producer slab is not yet full: store the current buffer to it.
+	 */
+	if (n_buffers_prod < n_buffers_per_slab)
+	{
+		// printf("prod slab is NOT full; %ld n_slabs_available %d n_buffers_prod \n", bp->n_slabs_available, n_buffers_prod);
+		bc->slab_prod[n_buffers_prod] = buffer;
+		bc->n_buffers_prod = n_buffers_prod + 1;
+		return;
+	}
+
+	// printf("prod slab FULL bp->n_slabs_available %lld \n", bp->n_slabs_available);
+
+	/*
+	 * Producer slab is full: trade the cache's current producer slab
+	 * (full) for an empty slab from the pool, then store the current
+	 * buffer to the new producer slab. As one full slab exists in the
+	 * cache, it is guaranteed that there is at least one empty slab
+	 * available in the pool.
+	 */
+	pthread_mutex_lock(&bp->lock);
+	n_slabs_available = bp->n_slabs_available;
+	slab_empty = bp->slabs[n_slabs_available];
+	bp->slabs[n_slabs_available] = bc->slab_prod;
+	bp->n_slabs_available = n_slabs_available + 1;
+	pthread_mutex_unlock(&bp->lock);
+
+	slab_empty[0] = buffer;
+	bc->slab_prod = slab_empty;
+	bc->n_buffers_prod = 1;
+
+	// printf("AFTER prod slab FULL bp->n_slabs_available %lld \n", bp->n_slabs_available);
+}
+
 static u32
 bcache_slab_size(struct bcache *bc)
 {
