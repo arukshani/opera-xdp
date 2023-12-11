@@ -393,7 +393,9 @@ port_free(struct port *p)
 	 */
 
 	if (p->xsk)
+	{
 		xsk_socket__delete(p->xsk);
+	}
 
 	bcache_free(p->bc);
 

@@ -146,19 +146,18 @@ port_rx_burst(struct port *p, struct mpmc_queue *local_dest_queue[NUM_OF_PER_DES
 
 		if (local_dest_queue[queue_index] != NULL)
 		{
-			// printf("push pakcet %d to local dest queue: %d \n", btx->addr[0], ret_val->ring_buf_index);
-			// mpmc_queue_push(dest_queue, (void *) btx);
 			int ret = mpmc_queue_push(local_dest_queue[queue_index], (void *) pkt);
 			if (!ret) 
 			{
 				printf("local_dest_queue is full \n");
-				//Release buffers to pool: TODO
+				//Release buffers to pool
 				bcache_prod(p->bc, addr_rx);
 			}
+			// bcache_prod(p->bc, addr_rx);
 		}
 		else
 		{
-			printf("TODO: There is no queue to push the packet(queue_indexx): %d \n", queue_index);
+			printf("There is no queue to push the packet(queue_indexx): %d \n", queue_index);
 		}
 
 	}

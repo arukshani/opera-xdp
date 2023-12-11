@@ -141,6 +141,8 @@ static struct bpool_params bpool_params[MAX_PORTS];
 static struct xsk_umem_config umem_cfg[MAX_PORTS];
 static struct bpool *bp[MAX_PORTS];
 static struct port *ports[MAX_PORTS];
+static u64 n_pkts_rx[MAX_PORTS];
+static u64 n_pkts_tx[MAX_PORTS];
 
 //============================QUEUE RELATED==========================
 

@@ -74,6 +74,67 @@
 #include "packet_process.h"
 #include "thread_functions.h"
 
+static void
+print_port_stats_separator(void)
+{
+	printf("+-%4s-+-%12s-+-%13s-+-%12s-+-%13s-+\n",
+	       "----",
+	       "------------",
+	       "-------------",
+	       "------------",
+	       "-------------");
+}
+
+static void
+print_port_stats_header(void)
+{
+	print_port_stats_separator();
+	printf("| %4s | %12s | %13s | %12s | %13s |\n",
+	       "Port",
+	       "RX packets",
+	       "RX rate (pps)",
+	       "TX packets",
+	       "TX_rate (pps)");
+	print_port_stats_separator();
+}
+
+static void
+print_port_stats_trailer(void)
+{
+	print_port_stats_separator();
+	printf("\n");
+}
+
+static void
+print_port_stats(int port_id, u64 ns_diff)
+{
+	struct port *p = ports[port_id];
+	double rx_pps, tx_pps;
+
+	rx_pps = (p->n_pkts_rx - n_pkts_rx[port_id]) * 1000000000. / ns_diff;
+	tx_pps = (p->n_pkts_tx - n_pkts_tx[port_id]) * 1000000000. / ns_diff;
+
+	printf("| %4d | %12llu | %13.0f | %12llu | %13.0f |\n",
+	       port_id,
+	       p->n_pkts_rx,
+	       rx_pps,
+	       p->n_pkts_tx,
+	       tx_pps);
+
+	n_pkts_rx[port_id] = p->n_pkts_rx;
+	n_pkts_tx[port_id] = p->n_pkts_tx;
+}
+
+static void
+print_port_stats_all(u64 ns_diff)
+{
+	int i;
+
+	print_port_stats_header();
+	for (i = 0; i < n_ports; i++)
+		print_port_stats(i, ns_diff);
+	print_port_stats_trailer();
+}
 
 static void
 print_port(u32 port_id)
@@ -191,7 +252,7 @@ int main(int argc, char **argv)
     n_ports = num_of_nses + n_nic_ports;
     n_veth_ports = num_of_nses;
 
-    for (i = 0; i < MAX_PORTS; i++)
+    for (i = 0; i < n_ports; i++)
     {
         memcpy(&bpool_params[i], &bpool_params_default,
 		   sizeof(struct bpool_params));
@@ -300,61 +361,90 @@ int main(int argc, char **argv)
 	}
 
 	/* NIC TX Threads. */
-	status = pthread_create(&threads[1],
-							NULL,
-							thread_func_nic_tx,
-							&thread_data[1]);
-	printf("Create VETH RX thread %d: %d \n", 1, thread_data[1].cpu_core_id);
+	// status = pthread_create(&threads[1],
+	// 						NULL,
+	// 						thread_func_nic_tx,
+	// 						&thread_data[1]);
+	// printf("Create VETH RX thread %d: %d \n", 1, thread_data[1].cpu_core_id);
 
-	if (status) {
-		printf("Thread %d creation failed.\n", i);
-		// return -1;
-	}
+	// if (status) {
+	// 	printf("Thread %d creation failed.\n", i);
+	// 	// return -1;
+	// }
 
 	/* NIC RX Threads. */
-	status = pthread_create(&threads[2],
-							NULL,
-							thread_func_nic_rx,
-							&thread_data[2]);
-	printf("Create NIC RX thread %d: %d \n", 2, thread_data[2].cpu_core_id);
+	// status = pthread_create(&threads[2],
+	// 						NULL,
+	// 						thread_func_nic_rx,
+	// 						&thread_data[2]);
+	// printf("Create NIC RX thread %d: %d \n", 2, thread_data[2].cpu_core_id);
 
-	if (status) {
-		printf("Thread %d creation failed.\n", i);
-		// return -1;
-	}
+	// if (status) {
+	// 	printf("Thread %d creation failed.\n", i);
+	// 	// return -1;
+	// }
 
 	/* VETH TX Threads. */
-	status = pthread_create(&threads[3],
-							NULL,
-							thread_func_veth_tx,
-							&thread_data[3]);
-	printf("Create VETH TX thread %d: %d \n", 3, thread_data[3].cpu_core_id);
+	// status = pthread_create(&threads[3],
+	// 						NULL,
+	// 						thread_func_veth_tx,
+	// 						&thread_data[3]);
+	// printf("Create VETH TX thread %d: %d \n", 3, thread_data[3].cpu_core_id);
 
-	if (status) {
-		printf("Thread %d creation failed.\n", i);
-		// return -1;
-	}
+	// if (status) {
+	// 	printf("Thread %d creation failed.\n", i);
+	// 	// return -1;
+	// }
 
 	printf("All threads created successfully.\n");
 
-	
 
 	signal(SIGINT, signal_handler);
 	signal(SIGTERM, signal_handler);
 	signal(SIGABRT, signal_handler);
 
+	// time_t secs = (time_t)running_time; 
+	// time_t startTime = time(NULL);
+
+	// while (time(NULL) - startTime < secs)
+	// {
+	// 	//Do nothing
+	// }
+
+	struct timespec time_pps;
+	clock_gettime(CLOCK_MONOTONIC, &time_pps);
+	u64 ns0 = time_pps.tv_sec * 1000000000UL + time_pps.tv_nsec;
+	for ( ; !quit; ) {
+		u64 ns1, ns_diff;
+
+		sleep(1);
+		clock_gettime(CLOCK_MONOTONIC, &time_pps);
+		ns1 = time_pps.tv_sec * 1000000000UL + time_pps.tv_nsec;
+		ns_diff = ns1 - ns0;
+		ns0 = ns1;
+
+		print_port_stats_all(ns_diff);
+	}
+
 	/* Threads completion. */
 	printf("Quit.\n");
+
+	for (i = 0; i < n_threads; i++)
+		thread_data[i].quit = 1;
+
+	pthread_join(threads[0], NULL);
+	// for (i = 0; i < n_threads; i++)
+	// 	pthread_join(threads[i], NULL);
 
     //============================================FREE MEMORY============================================
     freeifaddrs(ifaddr);
 	mg_map_cleanup(&ip_table);
 	mg_map_cleanup(&mac_table);
 
-    for (i = 0; i < n_ports; i++)
+	for (i = 0; i < n_ports; i++)
     {
-        port_free(ports[i]);
-        bpool_free(bp[i]);
+		port_free(ports[i]);
+		bpool_free(bp[i]);
     }
 		
     printf("===========Remove XDP Programs from NIC and VETHS============\n");
