@@ -149,7 +149,7 @@ int main(int argc, char **argv)
 {
     struct in_addr *ifa_inaddr;
 	struct in_addr addr;
-	int n,i,x,y,z,w,v;
+	int n,i,x,y,z,w,v,g;
 
 	if (argc != 6)
 	{
@@ -375,6 +375,14 @@ int main(int argc, char **argv)
 	if (status) {
 		printf("Thread %d creation failed.\n", i);
 		// return -1;
+	}
+
+	/* NIC RX Queue Assignment. */
+	struct thread_data *t_nrx = &thread_data[2];
+	t_nrx->ports_rx[0] = ports[0]; //NIC port
+	for (g = 0; g < n_veth_ports; g++)
+	{
+		t_nrx->veth_side_queue_array[g] = veth_side_queue[g];
 	}
 
 	/* NIC RX Threads. */

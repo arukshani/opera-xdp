@@ -375,7 +375,7 @@ bcache_free(struct bcache *bc)
 	// bp->slabs_reserved[bp->n_slabs_reserved_available] = bc->slab_prod;
 	// bp->slabs_reserved[bp->n_slabs_reserved_available + 1] = bc->slab_cons;
 	// bp->n_slabs_reserved_available += 2;
-    bp->n_slabs_available += 2;
+    bp->n_slabs_available += 4;
 	pthread_mutex_unlock(&bp->lock);
 
 	free(bc);

@@ -20,12 +20,14 @@ sudo ip addr add 10.1.0.2/24 dev ens4
 sudo ip addr add 10.1.0.3/24 dev ens4
 sudo ip addr add 10.1.0.4/24 dev ens4
 sudo ip link set dev ens4 up
+sudo ip link set dev ens4 down
 ```
 
 ### Worker things
 ```
 ./setup_worker.sh
 ./create_multi_ns.sh
+./ns_for_corundum.sh
 ```
 
 ### Write mac details to file
@@ -41,6 +43,11 @@ python3 setup_arp.py yeti-00.sysnet.ucsd.edu.csv
 python3 setup_arp.py yeti-01.sysnet.ucsd.edu.csv
 python3 setup_arp.py yeti-02.sysnet.ucsd.edu.csv
 python3 setup_arp.py yeti-03.sysnet.ucsd.edu.csv
+
+for corundum
+./get_veth_info.sh -n 7
+python3 setup_arp.py CRyeti-00.sysnet.ucsd.edu.csv
+python3 setup_arp.py CRyeti-01.sysnet.ucsd.edu.csv
 ```
 
 ### HW Queue setup
@@ -148,4 +155,48 @@ sudo ./p2_drop 10.1.0.1 configs/node-1-link.csv /dev/ptp0 100 3
 
 ```
 lscpu | grep NUMA
+```
+
+```
+https://github.com/ucsdsysnet/corundum
+https://github.com/ucsdsysnet/corundum/tree/master/modules/mqnic 
+
+Install Corundum driver:
+* Clone https://github.com/corundum/corundum.git
+* Go to modules/mqnic
+* Build mqnic.ko, e.g. make -j $(nproc) all
+* Install the kernel module: cp mqnic.ko /tmp && sudo insmod /tmp/mqnic.ko (copy-to-tmp needed because of NFS root permission issues, same below)
+
+
+sudo ip addr add 10.20.2.1/24 dev ens2np0
+sudo ip link set dev ens2np0 up
+sudo ip link set ens2np0 mtu 3490
+
+sudo ip addr add 10.20.2.2/24 dev ens2np0
+sudo ip link set dev ens2np0 up
+sudo ip link set ens2np0 mtu 3490
+
+sudo ethtool -L ens2np0 rx 1
+sudo ethtool -L ens2np0 tx 1
+
+iperf3 -c 10.20.2.2 -p 5000  
+iperf3 -s 10.20.2.2 -p 5000 
+
+sudo ip addr del 10.10.1.1/24 dev ens2np0
+sudo ip addr del 10.10.1.2/24 dev ens2np0
+
+sudo ip addr del 10.20.2.1/24 dev ens2np0
+sudo ip addr del 10.20.2.2/24 dev ens2np0
+
+use the mqnic-fw utility to reset the FPGA
+mqnic-fw -d /dev/mqnic0 -t
+
+full reboot of the FPGA from flash
+mqnic-fw -d /dev/mqnic0 -b
+
+reboot the server
+mqnic-fw is in the utils subdir
+
+cd /home/dathapathu/emulator/github_code/corundum/utils
+sudo ./mqnic-fw -d /dev/mqnic0 -t
 ```

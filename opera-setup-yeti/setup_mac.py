@@ -8,7 +8,7 @@ def get_worker_mac():
     hex_val_lan_ip="0x{}".format(binascii.hexlify(socket.inet_aton(stdout.partition(',')[0])).decode('ascii'))
     stdout = stdout + ",{}".format(hex_val_lan_ip)
     # print(stdout)
-    with open("/home/dathapathu/emulator/github_code/all_worker_info.csv", "a") as myfile:
+    with open("/home/dathapathu/emulator/github_code/cr_worker_info.csv", "a") as myfile:
         myfile.write(stdout + "\n")
 
     
