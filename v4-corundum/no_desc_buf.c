@@ -64,6 +64,8 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <linux/ptp_clock.h>
+#include <linux/udp.h>
+#include <linux/tcp.h>
 
 #include "data_structures.h"
 #include "common_funcs.h"
@@ -1340,6 +1342,7 @@ bool prefix(const char *pre, const char *str)
 //  Ethernet type of GRE encapsulated packet is ETH_P_TEB (gretap)
 //  outer eth
 //  outer ip
+//  outer udp (new for corundum to help with RSS)
 //  gre
 //  inner eth
 //  inner ip
@@ -1355,23 +1358,49 @@ static void process_rx_packet(void *data, struct port_params *params, uint32_t l
 	{
 		// printf("From VETH \n");
 		struct iphdr *outer_iphdr;
-		// struct iphdr encap_outer_iphdr;
 		struct ethhdr *outer_eth_hdr;
 
 		struct iphdr *inner_ip_hdr_tmp = (struct iphdr *)(data +
 														  sizeof(struct ethhdr));
 
+		//new
+		struct udphdr *inner_udp_hdr;
+		struct tcphdr *inner_tcp_hdr;
+		uint16_t udp_source;
+
+		if (inner_ip_hdr_tmp->protocol == IPPROTO_UDP) 
+		{
+			inner_udp_hdr = (struct udphdr *)(data +
+					    sizeof(struct ethhdr) +
+					    sizeof(struct iphdr));
+			udp_source = ((inner_udp_hdr->source ^ inner_udp_hdr->dest) | 0xc000);
+
+		} else if (inner_ip_hdr_tmp->protocol == IPPROTO_TCP) 
+		{
+			inner_tcp_hdr = (struct tcphdr *)(data +
+					    sizeof(struct ethhdr) +
+					    sizeof(struct iphdr));
+			udp_source = ((inner_tcp_hdr->source ^ inner_tcp_hdr->dest) | 0xc000);
+			
+		} else
+		{
+			udp_source = htons(0xC008);
+		}
+
 		int olen = 0;
 		olen += ETH_HLEN;
+		olen += sizeof(struct udphdr); //new
 		olen += sizeof(struct gre_hdr);
 
-		int encap_size = 0; // outer_eth + outer_ip + gre
+		int encap_size = 0; // outer_eth + outer_ip + outer_udp + gre
 		int encap_outer_eth_len = ETH_HLEN;
 		int encap_outer_ip_len = sizeof(struct iphdr);
+		int encap_outer_udp_len = sizeof(struct udphdr); //new
 		int encap_gre_len = sizeof(struct gre_hdr);
 
 		encap_size += encap_outer_eth_len;
 		encap_size += encap_outer_ip_len;
+		encap_size += encap_outer_udp_len; //new
 		encap_size += encap_gre_len;
 
 		int offset = 0 + encap_size;
@@ -1409,12 +1438,22 @@ static void process_rx_packet(void *data, struct port_params *params, uint32_t l
 		outer_iphdr = (struct iphdr *)(data +
 									   sizeof(struct ethhdr));
 		__builtin_memcpy(outer_iphdr, inner_ip_hdr_tmp, sizeof(*outer_iphdr));
-		outer_iphdr->protocol = IPPROTO_GRE;
+		// outer_iphdr->protocol = IPPROTO_GRE; //new
+		outer_iphdr->protocol = IPPROTO_UDP; //new
 		outer_iphdr->tot_len = bpf_htons(olen + bpf_ntohs(inner_ip_hdr_tmp->tot_len));
+
+		//new
+		struct udphdr *udp_hdr;
+		udp_hdr = (struct udphdr *)(data +
+									 sizeof(struct ethhdr) + sizeof(struct iphdr));
+		udp_hdr->source = udp_source;
+		udp_hdr->dest = htons(0x1292); //4754 (https://datatracker.ietf.org/doc/html/rfc8086#page-11)
+		udp_hdr->len = bpf_htons( sizeof(struct udphdr) + sizeof(struct gre_hdr) + ETH_HLEN +
+							bpf_ntohs(inner_ip_hdr_tmp->tot_len));
 
 		struct gre_hdr *gre_hdr;
 		gre_hdr = (struct gre_hdr *)(data +
-									 sizeof(struct ethhdr) + sizeof(struct iphdr));
+									 sizeof(struct ethhdr) + sizeof(struct iphdr) + sizeof(struct udphdr));
 
 		gre_hdr->proto = bpf_htons(ETH_P_TEB);
 		if (strcmp(params->iface, "crout12") == 0) {
@@ -1449,7 +1488,10 @@ static void process_rx_packet(void *data, struct port_params *params, uint32_t l
 		struct ethhdr *eth = (struct ethhdr *)data;
 		struct iphdr *outer_ip_hdr = (struct iphdr *)(data +
 													  sizeof(struct ethhdr));
-		struct gre_hdr *greh = (struct gre_hdr *)(outer_ip_hdr + 1);
+
+		struct udphdr *outer_udp_hdr = (struct udphdr *)(outer_ip_hdr + 1);
+		
+		struct gre_hdr *greh = (struct gre_hdr *)(outer_udp_hdr + 1);
 
 		// if (ntohs(eth->h_proto) != ETH_P_IP || outer_ip_hdr->protocol != IPPROTO_GRE ||
 		// 			ntohs(greh->proto) != ETH_P_TEB)
@@ -1705,24 +1747,28 @@ thread_func_veth(void *arg)
 				btx->addr[0] = brx->addr[j];
 				btx->len[0] = ret_val->new_len;
 
-				// printf("ret_val->new_len from veth rx: %d \n", ret_val->new_len);
-				
-				btx->n_pkts++;
-				ringbuf_t *dest_queue = ring_buff[0][ret_val->ring_buf_index];
-				if (dest_queue != NULL)
+				if (ret_val->new_len !=0) 
 				{
-					if (!ringbuf_is_full(dest_queue))
+					btx->n_pkts++;
+					ringbuf_t *dest_queue = ring_buff[0][ret_val->ring_buf_index];
+					if (dest_queue != NULL)
 					{
-						ringbuf_sp_enqueue(dest_queue, btx);
+						if (!ringbuf_is_full(dest_queue))
+						{
+							ringbuf_sp_enqueue(dest_queue, btx);
+						}
+						else
+						{
+							printf("Per dest queue IS FULL for veth rx \n");
+						}
 					}
 					else
 					{
-						printf("Per dest queue IS FULL for veth rx \n");
+						printf("TODO: There is no queue to push the packet(ret_val->ring_buf_index): %d \n", ret_val->ring_buf_index);
 					}
-				}
-				else
+				}else
 				{
-					printf("TODO: There is no queue to push the packet(ret_val->ring_buf_index): %d \n", ret_val->ring_buf_index);
+					bcache_prod(port_rx->bc, brx->addr[j]);
 				}
 			}
 		}

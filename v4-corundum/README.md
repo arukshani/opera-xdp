@@ -165,4 +165,10 @@ mqnic_tx.c file (mqnic_start_xmit method)
 netdev_info(ndev, "%s: len %d frags %d", __func__, skb->len, shinfo->nr_frags);
 print_hex_dump(KERN_INFO, "", DUMP_PREFIX_NONE, 16, 1, tx_desc, ring->desc_block_size*MQNIC_DESC_SIZE, true);
 
+cd /home/dathapathu/emulator/github_code/corundum/utils
+sudo ./mqnic-fw -d /dev/mqnic0 -t
+
+sudo ./mp_iperf_tcp_ns_client.sh -n 1
+sudo ./mp_tcp_ns_server.sh -n 1
+
 ```

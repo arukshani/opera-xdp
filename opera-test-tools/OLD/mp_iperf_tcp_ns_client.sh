@@ -30,7 +30,7 @@ for i in $(seq 0 $num_namespaces); do
     # echo $cpu_core_id
     # numactl -N $nic_local_numa_node ip netns exec ${myArray[$i]} iperf3 -c $server -p $port -t 30 -f g &
     sudo taskset --cpu-list $cpu_core_id ip netns exec ${myArray[$i]} iperf3 -c $server -p $port -t 30 -f g -P 3 &
-    port=$(echo "1000+$port" | bc)
+    port=$(echo "500+$port" | bc)
 done
 )
 

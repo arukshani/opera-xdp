@@ -41,7 +41,7 @@ do
     cpu_core_id=$(echo "$cpu_core_id+2" | bc)
     # numactl -N $nic_local_numa_node ip netns exec ${myArray[$i]} iperf3 -s $server -p $port &
     sudo taskset --cpu-list $cpu_core_id ip netns exec ${myArray[$i]} iperf3 -s $server -p $port &
-    port=$(echo "1000+$port" | bc)
+    port=$(echo "500+$port" | bc)
 done
 # )
 

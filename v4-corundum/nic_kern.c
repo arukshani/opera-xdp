@@ -84,7 +84,8 @@ int xdp_sock_prog(struct xdp_md *ctx)
 		// bpf_printk("packet is ETH_P_IP \n");
 		ip_type = parse_ip_hdr(&nh, data_end, &iphdr);
 		// if (ip_type != IPPROTO_ICMP) {
-		if (ip_type != IPPROTO_GRE) {
+		// if (ip_type != IPPROTO_GRE) {
+		if (ip_type != IPPROTO_UDP) { //new
 			// bpf_printk("ip type is not IPPROTO_GRE %d \n", ip_type);
             goto out;
         }
