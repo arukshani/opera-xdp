@@ -1,8 +1,8 @@
 
 ### This is version 5 refactoring: corundum test
 ```
-sudo taskset --cpu-list 32 ./sw_corundum 10.20.2.1 120 8 16
-sudo taskset --cpu-list 32 ./sw_corundum 10.20.2.2 120 8 16 
+sudo taskset --cpu-list 32 ./sw_corundum 10.20.1.1 120 8 16
+sudo taskset --cpu-list 32 ./sw_corundum 10.20.2.1 120 8 16 
 
 sudo ./iperf_tcp_ns_client.sh -n 0 -i ens2np0 -s 10.20.2.2
 sudo ./iperf_tcp_ns_server.sh -n 0 -i ens2np0 -s 10.20.2.2
@@ -17,5 +17,17 @@ sudo ip link set dev ens2np0 up
 sudo ip link set dev ens2np0 down
 
 sudo set_irq_affinity.sh ens2np0
+
+```
+
+```
+sudo ip addr del 10.20.2.1/24 dev ens2np0
+sudo ip addr del 10.20.2.2/24 dev ens2np0
+
+sudo ip addr add 10.20.1.1/16 dev ens2np0
+sudo ip addr add 10.20.2.1/16 dev ens2np0
+
+sudo ip link set dev ens2np0 up
+sudo ip link set ens2np0 mtu 3490
 
 ```

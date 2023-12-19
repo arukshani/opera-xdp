@@ -46,6 +46,10 @@ typedef __u8  u8;
 #define WORKER_INFO_CSV "/home/dathapathu/emulator/github_code/cr_worker_info.csv"
 #endif
 
+#ifndef OUTER_VETH_PREFIX
+#define OUTER_VETH_PREFIX "vethout"
+#endif
+
 #ifndef START_THREAD_CORE_ID
 #define START_THREAD_CORE_ID 34
 #endif
@@ -294,7 +298,8 @@ static u64 n_pkts_rx[MAX_PORTS];
 static u64 n_pkts_tx[MAX_PORTS];
 static u64 n_cleanup_tx[MAX_PORTS];
 
-char out_veth_arr[8][10] = {"crout12", "crout13", "crout14", "crout15", "crout16", "crout17", "crout18", "crout19"};
+// char out_veth_arr[8][10] = {"crout12", "crout13", "crout14", "crout15", "crout16", "crout17", "crout18", "crout19"};
+char out_veth_arr[8][10] = {"vethout12", "vethout13", "vethout14", "vethout15", "vethout16", "vethout17", "vethout18", "vethout19"};
 
 static const struct sched_map {
 	const char *name;

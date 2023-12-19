@@ -247,7 +247,7 @@ static void process_rx_packet(void *data, struct port_params *params, uint32_t l
 	int is_nic = strcmp(params->iface, nic_iface);
 
 	// if (is_veth == 0 || is_veth3 == 0)
-    if (prefix("crout", params->iface))
+    if (prefix(OUTER_VETH_PREFIX, params->iface))
 	{
 		// printf("From VETH \n");
 		struct iphdr *outer_iphdr;

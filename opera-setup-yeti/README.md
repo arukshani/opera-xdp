@@ -27,7 +27,8 @@ sudo ip link set dev ens4 down
 ```
 ./setup_worker.sh
 ./create_multi_ns.sh
-./ns_for_corundum.sh
+<!-- ./ns_for_corundum.sh -->
+./unique_ip_for_ns.sh
 ```
 
 ### Write mac details to file
@@ -46,8 +47,11 @@ python3 setup_arp.py yeti-03.sysnet.ucsd.edu.csv
 
 for corundum
 ./get_veth_info.sh -n 7
-python3 setup_arp.py CRyeti-00.sysnet.ucsd.edu.csv
-python3 setup_arp.py CRyeti-01.sysnet.ucsd.edu.csv
+<!-- python3 setup_arp.py CRyeti-00.sysnet.ucsd.edu.csv
+python3 setup_arp.py CRyeti-01.sysnet.ucsd.edu.csv -->
+
+python3 setup_all_to_all_arp.py NSyeti-00.sysnet.ucsd.edu.csv
+python3 setup_all_to_all_arp.py NSyeti-01.sysnet.ucsd.edu.csv
 ```
 
 ### HW Queue setup
