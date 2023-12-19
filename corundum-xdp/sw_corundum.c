@@ -64,6 +64,8 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <linux/ptp_clock.h>
+#include <linux/udp.h>
+#include <linux/tcp.h>
 
 #include "data_structures.h"
 #include "common_funcs.h"
@@ -1290,6 +1292,7 @@ bool prefix(const char *pre, const char *str)
 //  Ethernet type of GRE encapsulated packet is ETH_P_TEB (gretap)
 //  outer eth
 //  outer ip
+//  outer udp (new for corundum to help with RSS)
 //  gre
 //  inner eth
 //  inner ip
@@ -1301,41 +1304,53 @@ static void process_rx_packet(void *data, struct port_params *params, uint32_t l
 	int is_nic = strcmp(params->iface, nic_iface);
 
 	// if (is_veth == 0 || is_veth3 == 0)
-    if (prefix( "veth", params->iface))
+    if (prefix("crout", params->iface))
 	{
 		// printf("From VETH \n");
 		struct iphdr *outer_iphdr;
-		// struct iphdr encap_outer_iphdr;
 		struct ethhdr *outer_eth_hdr;
 
 		struct iphdr *inner_ip_hdr_tmp = (struct iphdr *)(data +
 														  sizeof(struct ethhdr));
-		// __builtin_memcpy(&encap_outer_iphdr, inner_ip_hdr_tmp, sizeof(encap_outer_iphdr));
-		// encap_outer_iphdr.version = inner_ip_hdr_tmp->version;
-		// encap_outer_iphdr.ihl = inner_ip_hdr_tmp->ihl;
-		// encap_outer_iphdr.frag_off = inner_ip_hdr_tmp->frag_off;
-		// encap_outer_iphdr.check = inner_ip_hdr_tmp->check;
-		// encap_outer_iphdr.id = inner_ip_hdr_tmp->id;
-		// encap_outer_iphdr.tos = inner_ip_hdr_tmp->tos;
-		// encap_outer_iphdr.daddr = inner_ip_hdr_tmp->daddr;
-		// encap_outer_iphdr.saddr = inner_ip_hdr_tmp->saddr;
-		// encap_outer_iphdr.ttl = inner_ip_hdr_tmp->ttl;
-		
-		// encap_outer_iphdr.protocol = IPPROTO_GRE;
+
+		//new
+		struct udphdr *inner_udp_hdr;
+		struct tcphdr *inner_tcp_hdr;
+		uint16_t udp_source;
+
+		if (inner_ip_hdr_tmp->protocol == IPPROTO_UDP) 
+		{
+			inner_udp_hdr = (struct udphdr *)(data +
+					    sizeof(struct ethhdr) +
+					    sizeof(struct iphdr));
+			udp_source = ((inner_udp_hdr->source ^ inner_udp_hdr->dest) | 0xc000);
+
+		} else if (inner_ip_hdr_tmp->protocol == IPPROTO_TCP) 
+		{
+			inner_tcp_hdr = (struct tcphdr *)(data +
+					    sizeof(struct ethhdr) +
+					    sizeof(struct iphdr));
+			udp_source = ((inner_tcp_hdr->source ^ inner_tcp_hdr->dest) | 0xc000);
+			
+		} else
+		{
+			udp_source = htons(0xC008);
+		}
 
 		int olen = 0;
 		olen += ETH_HLEN;
+		olen += sizeof(struct udphdr); //new
 		olen += sizeof(struct gre_hdr);
 
-		// encap_outer_iphdr.tot_len = bpf_htons(olen + bpf_ntohs(inner_ip_hdr_tmp->tot_len));
-
-		int encap_size = 0; // outer_eth + outer_ip + gre
+		int encap_size = 0; // outer_eth + outer_ip + outer_udp + gre
 		int encap_outer_eth_len = ETH_HLEN;
 		int encap_outer_ip_len = sizeof(struct iphdr);
+		int encap_outer_udp_len = sizeof(struct udphdr); //new
 		int encap_gre_len = sizeof(struct gre_hdr);
 
 		encap_size += encap_outer_eth_len;
 		encap_size += encap_outer_ip_len;
+		encap_size += encap_outer_udp_len; //new
 		encap_size += encap_gre_len;
 
 		int offset = 0 + encap_size;
@@ -1345,7 +1360,6 @@ static void process_rx_packet(void *data, struct port_params *params, uint32_t l
 		u64 new_new_addr = xsk_umem__add_offset_to_addr(new_addr);
 		u8 *new_data = xsk_umem__get_data(params->bp->addr, new_new_addr);
 		memcpy(new_data, data, len);
-		// u8 *new_data = xsk_umem__get_data(params->bp->addr, new_new_addr);
 
 		struct ethhdr *eth = (struct ethhdr *)new_data;
 		struct iphdr *inner_ip_hdr = (struct iphdr *)(new_data +
@@ -1359,94 +1373,60 @@ static void process_rx_packet(void *data, struct port_params *params, uint32_t l
 		}
 
 		outer_eth_hdr = (struct ethhdr *)data;
-		// __builtin_memcpy(outer_eth_hdr->h_source, out_eth_src, sizeof(outer_eth_hdr->h_source));
-		// memcpy(outer_eth_hdr->h_source, out_eth_src, sizeof(outer_eth_hdr->h_source));
 		ether_addr_copy_assignment(outer_eth_hdr->h_source, &out_eth_src);
 		struct ip_set *dest_ip_index = mg_map_get(&ip_table, inner_ip_hdr_tmp->daddr);
 		// printf("dest_ip_index = %d\n", dest_ip_index->index);
 		int mac_index;
 		getRouteElement(route_table, dest_ip_index->index, topo, &mac_index);
 		struct mac_addr *dest_mac_val = mg_map_get(&mac_table, mac_index);
-		// ringbuf_t *dest_queue = mg_map_get(&dest_queue_table, mac_index);
 		// printf("dest_ip_index = %d, mac_index=%d \n", dest_ip_index->index, mac_index);
 		return_val->ring_buf_index = dest_ip_index->index - 1;
-
-		// Telemetry
-		//  #if DEBUG == 1
-		//  	timestamp_arr[time_index] = now;
-		//  	node_ip[time_index] = src_ip;
-		//  	slot[time_index]=0;
-		//  	topo_arr[time_index] = topo;
-		//  	next_node[time_index] = mac_index;
-		//  	time_index++;
-		//  #endif
-
-		// For debug
-		// printf("mac_index = %d\n", mac_index);
-		// int i;
-		// for (i = 0; i < 6; ++i)
-		// 	printf(" %02x", (unsigned char) dest_mac_val->bytes[i]);
-		// puts("\n");
-
-		// __builtin_memcpy(outer_eth_hdr->h_dest, dest_mac_val->bytes, sizeof(outer_eth_hdr->h_dest));
 		ether_addr_copy_assignment(outer_eth_hdr->h_dest, dest_mac_val->bytes);
 
 		outer_eth_hdr->h_proto = htons(ETH_P_IP);
 
 		outer_iphdr = (struct iphdr *)(data +
 									   sizeof(struct ethhdr));
-		// __builtin_memcpy(outer_iphdr, &encap_outer_iphdr, sizeof(*outer_iphdr));
 		__builtin_memcpy(outer_iphdr, inner_ip_hdr_tmp, sizeof(*outer_iphdr));
-		// outer_iphdr->version = inner_ip_hdr_tmp->version;
-		// outer_iphdr->ihl = inner_ip_hdr_tmp->ihl;
-		// outer_iphdr->frag_off = inner_ip_hdr_tmp->frag_off;
-		// outer_iphdr->check = inner_ip_hdr_tmp->check;
-		// outer_iphdr->id = inner_ip_hdr_tmp->id;
-		// outer_iphdr->tos = inner_ip_hdr_tmp->tos;
-		// outer_iphdr->daddr = inner_ip_hdr_tmp->daddr;
-		// outer_iphdr->saddr = inner_ip_hdr_tmp->saddr;
-		// outer_iphdr->ttl = inner_ip_hdr_tmp->ttl;
-		outer_iphdr->protocol = IPPROTO_GRE;
+		// outer_iphdr->protocol = IPPROTO_GRE; //new
+		outer_iphdr->protocol = IPPROTO_UDP; //new
 		outer_iphdr->tot_len = bpf_htons(olen + bpf_ntohs(inner_ip_hdr_tmp->tot_len));
+
+		//new
+		struct udphdr *udp_hdr;
+		udp_hdr = (struct udphdr *)(data +
+									 sizeof(struct ethhdr) + sizeof(struct iphdr));
+		udp_hdr->source = udp_source;
+		udp_hdr->dest = htons(0x1292); //4754 (https://datatracker.ietf.org/doc/html/rfc8086#page-11)
+		udp_hdr->len = bpf_htons( sizeof(struct udphdr) + sizeof(struct gre_hdr) + ETH_HLEN +
+							bpf_ntohs(inner_ip_hdr_tmp->tot_len));
 
 		struct gre_hdr *gre_hdr;
 		gre_hdr = (struct gre_hdr *)(data +
-									 sizeof(struct ethhdr) + sizeof(struct iphdr));
+									 sizeof(struct ethhdr) + sizeof(struct iphdr) + sizeof(struct udphdr));
 
 		gre_hdr->proto = bpf_htons(ETH_P_TEB);
-		if (strcmp(params->iface, "veth1") == 0) {
+		if (strcmp(params->iface, "crout12") == 0) {
 			gre_hdr->flags = 0;
-		} else if (strcmp(params->iface, "veth3") == 0) {
+		} else if (strcmp(params->iface, "crout13") == 0) {
 			gre_hdr->flags = 1;
-		} else if (strcmp(params->iface, "vethout23") == 0) {
+		} else if (strcmp(params->iface, "crout14") == 0) {
 			gre_hdr->flags = 2;
-		} else if (strcmp(params->iface, "vethout24") == 0) {
+		} else if (strcmp(params->iface, "crout15") == 0) {
 			gre_hdr->flags = 3;
-		} else if (strcmp(params->iface, "vethout26") == 0) {
+		} else if (strcmp(params->iface, "crout16") == 0) {
 			gre_hdr->flags = 4;
-		} else if (strcmp(params->iface, "vethout27") == 0) {
+		} else if (strcmp(params->iface, "crout17") == 0) {
 			gre_hdr->flags = 5;
-		} else if (strcmp(params->iface, "vethout28") == 0) {
+		} else if (strcmp(params->iface, "crout18") == 0) {
 			gre_hdr->flags = 6;
-		} else if (strcmp(params->iface, "vethout29") == 0) {
+		} else if (strcmp(params->iface, "crout19") == 0) {
 			gre_hdr->flags = 7;
-		} else if (strcmp(params->iface, "vethout30") == 0) {
-			gre_hdr->flags = 8;
-		} else if (strcmp(params->iface, "vethout31") == 0) {
-			gre_hdr->flags = 9;
-		} else if (strcmp(params->iface, "vethout32") == 0) {
-			gre_hdr->flags = 10;
-		} else if (strcmp(params->iface, "vethout33") == 0) {
-			gre_hdr->flags = 11;
-		} else if (strcmp(params->iface, "vethout34") == 0) {
-			gre_hdr->flags = 12;
 		}
-
-		// return_val->dest_queue = dest_queue;
+		
 		return_val->new_len = new_len;
 
 		// printf("From VETH packet received\n");
-		// return return_val;
 	}
 	else if (is_nic == 0)
 	{
@@ -1458,7 +1438,10 @@ static void process_rx_packet(void *data, struct port_params *params, uint32_t l
 		struct ethhdr *eth = (struct ethhdr *)data;
 		struct iphdr *outer_ip_hdr = (struct iphdr *)(data +
 													  sizeof(struct ethhdr));
-		struct gre_hdr *greh = (struct gre_hdr *)(outer_ip_hdr + 1);
+
+		struct udphdr *outer_udp_hdr = (struct udphdr *)(outer_ip_hdr + 1);
+		
+		struct gre_hdr *greh = (struct gre_hdr *)(outer_udp_hdr + 1);
 
 		// if (ntohs(eth->h_proto) != ETH_P_IP || outer_ip_hdr->protocol != IPPROTO_GRE ||
 		// 			ntohs(greh->proto) != ETH_P_TEB)
@@ -1593,7 +1576,7 @@ thread_func_veth_to_nic_tx(void *arg)
 						struct burst_tx *btx2 = (struct burst_tx *)obj2;
 						btx_collector->addr[btx_index] = btx2->addr[0];
 						btx_collector->len[btx_index] = btx2->len[0];
-						printf("Pull packet %d from local queue %d to nic tx \n", btx2->addr[0], k);
+						// printf("Pull packet %d from local queue %d to nic tx \n", btx2->addr[0], k);
 
 						free(btx2);
 
@@ -1607,7 +1590,7 @@ thread_func_veth_to_nic_tx(void *arg)
 			}
 			if (btx_index)
 			{
-				printf("There are packets from queue %d to nic tx \n", k);
+				// printf("There are packets from queue %d to nic tx \n", k);
 				port_tx_burst_collector(port_tx, btx_collector, 0, 0);
 			} 
 		
@@ -1660,7 +1643,7 @@ thread_func_veth(void *arg)
 			continue;
 		}
 
-		printf("veth rx n_pkts: %d \n", n_pkts);
+		// printf("veth rx n_pkts: %d \n", n_pkts);
 
 		/* Process & TX. */
 		for (j = 0; j < n_pkts; j++)
@@ -1680,26 +1663,31 @@ thread_func_veth(void *arg)
 				btx->addr[0] = brx->addr[j];
 				btx->len[0] = ret_val->new_len;
 				
-				btx->n_pkts++;
-				// struct mpmc_queue *dest_queue = local_dest_queue[ret_val->ring_buf_index];
-				// printf("ret_val->ring_buf_index: %d \n", ret_val->ring_buf_index);
-				if (local_dest_queue[ret_val->ring_buf_index] != NULL)
+				if (ret_val->new_len !=0) 
 				{
-					printf("push pakcet %d to local dest queue: %d \n", btx->addr[0], ret_val->ring_buf_index);
-					// mpmc_queue_push(dest_queue, (void *) btx);
-					int ret = mpmc_queue_push(local_dest_queue[ret_val->ring_buf_index], (void *) btx);
-					if (!ret) 
+					btx->n_pkts++;
+					// struct mpmc_queue *dest_queue = local_dest_queue[ret_val->ring_buf_index];
+					// printf("ret_val->ring_buf_index: %d \n", ret_val->ring_buf_index);
+					if (local_dest_queue[ret_val->ring_buf_index] != NULL)
 					{
-						printf("local_dest_queue is full \n");
-						//Release buffers to pool
-						bcache_prod(port_rx->bc, brx->addr[j]);
+						// printf("push pakcet %d to local dest queue: %d \n", btx->addr[0], ret_val->ring_buf_index);
+						// mpmc_queue_push(dest_queue, (void *) btx);
+						int ret = mpmc_queue_push(local_dest_queue[ret_val->ring_buf_index], (void *) btx);
+						if (!ret) 
+						{
+							printf("local_dest_queue is full \n");
+							//Release buffers to pool
+							bcache_prod(port_rx->bc, brx->addr[j]);
+						}
 					}
-
-					
+					else
+					{
+						printf("TODO: There is no queue to push the packet(ret_val->ring_buf_index): %d \n", ret_val->ring_buf_index);
+					}
 				}
 				else
 				{
-					printf("TODO: There is no queue to push the packet(ret_val->ring_buf_index): %d \n", ret_val->ring_buf_index);
+					bcache_prod(port_rx->bc, brx->addr[j]);
 				}
 			}
 		}
@@ -2138,7 +2126,7 @@ int main(int argc, char **argv)
 			while (ptr != NULL)
 			{
 				// printf("'%s'\n", ptr);
-				if (col_index == 8)
+				if (col_index == 6)
 				{
 					uint32_t dest = inet_addr(ptr);
 					struct ip_set local_ip_index = {.index = dest_index};
@@ -2393,7 +2381,7 @@ int main(int argc, char **argv)
 	signal(SIGTERM, signal_handler);
 	signal(SIGABRT, signal_handler);
 
-	// read_time();
+	read_time();
 
 	time_t secs = (time_t)running_time; // 10 minutes (can be retrieved from user's input)
 	time_t startTime = time(NULL);
@@ -2405,15 +2393,15 @@ int main(int argc, char **argv)
 	while (time(NULL) - startTime < secs)
 	// for ( ; !quit; ) 
 	{
-		read_time();
-		// u64 ns1, ns_diff;
-		// sleep(1);
-		// clock_gettime(CLOCK_MONOTONIC, &time_pps);
-		// ns1 = time_pps.tv_sec * 1000000000UL + time_pps.tv_nsec;
-		// ns_diff = ns1 - ns0;
-		// ns0 = ns1;
+		// read_time();
+		u64 ns1, ns_diff;
+		sleep(1);
+		clock_gettime(CLOCK_MONOTONIC, &time_pps);
+		ns1 = time_pps.tv_sec * 1000000000UL + time_pps.tv_nsec;
+		ns_diff = ns1 - ns0;
+		ns0 = ns1;
 
-		// print_port_stats_all(ns_diff);
+		print_port_stats_all(ns_diff);
 	}
 
 	/* Threads completion. */

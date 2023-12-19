@@ -11,7 +11,7 @@ sudo ethtool -g ens4
 ### This is version 5: Map per dest queues to NIC queues
 ```
 cd /home/dathapathu/emulator/github_code/opera-xdp
-cd /home/dathapathu/emulator/github_code/opera-xdp/opera-v5
+cd /home/dathapathu/emulator/github_code/opera-xdp/corundum-xdp
 cd /home/dathapathu/emulator/github_code/opera-xdp/opera-test-tools
 
 sudo taskset --cpu-list 15 ./emulator_v5 192.168.1.1 configs/node-1-link.csv /dev/ptp0 120 1 1 
@@ -34,11 +34,11 @@ sudo ./emulator_v5 10.1.0.2 configs/node-2-link.csv /dev/ptp0 120 8 16
 
 ### This is version 5: corundum test
 ```
-sudo taskset --cpu-list 31 ./sw_corundum 10.1.0.1 configs/node-1-link.csv /dev/ptp0 120 2 2
-sudo taskset --cpu-list 31 ./sw_corundum 10.1.0.2 configs/node-2-link.csv /dev/ptp0 120 2 2 
+sudo taskset --cpu-list 31 ./sw_corundum 10.20.2.1 configs/node-1-link.csv /dev/ptp0 120 8 16
+sudo taskset --cpu-list 31 ./sw_corundum 10.20.2.2 configs/node-2-link.csv /dev/ptp0 120 8 16 
 
-sudo ./iperf_tcp_ns_client.sh -n 0 -i ens2np0 -s 10.1.0.2
-sudo ./iperf_tcp_ns_server.sh -n 0 -i ens2np0 -s 10.1.0.2
+sudo ./iperf_tcp_ns_client.sh -n 0 -i ens2np0 -s 10.20.2.2
+sudo ./iperf_tcp_ns_server.sh -n 0 -i ens2np0 -s 10.20.2.2
 
 iperf3 -c 10.20.2.2 -p 5000
 iperf3 -s 10.20.2.2 -p 5000

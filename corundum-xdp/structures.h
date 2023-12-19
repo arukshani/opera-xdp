@@ -78,7 +78,7 @@ struct bpool_params {
 #endif
 
 #ifndef START_THREAD_CORE_ID
-#define START_THREAD_CORE_ID 33
+#define START_THREAD_CORE_ID 34
 #endif
 
 struct burst_rx {
@@ -272,7 +272,7 @@ static u64 n_pkts_rx[MAX_PORTS];
 static u64 n_pkts_tx[MAX_PORTS];
 static u64 n_cleanup_tx[MAX_PORTS];
 
-char out_veth_arr[13][10] = {"veth1", "veth3", "vethout23", "vethout24", "vethout26", "vethout27", "vethout28", "vethout29", "vethout30", "vethout31", "vethout32", "vethout33", "vethout34"};
+char out_veth_arr[8][10] = {"crout12", "crout13", "crout14", "crout15", "crout16", "crout17", "crout18", "crout19"};
 
 static const struct sched_map {
 	const char *name;
