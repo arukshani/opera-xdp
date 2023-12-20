@@ -598,7 +598,7 @@ int main(int argc, char **argv)
 		ns_diff = ns1 - ns0;
 		ns0 = ns1;
 
-		print_port_stats_all(ns_diff);
+		// print_port_stats_all(ns_diff);
 	}
 
 	/* Threads completion. */

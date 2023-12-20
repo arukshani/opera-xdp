@@ -61,27 +61,27 @@ int getMACAddress(char *ifname, unsigned char chMAC[6]) {
   return 1;
 }
 
-// void extractIpAddress(unsigned char* sourceString, short* ipAddress)
-// {
-//     unsigned short len = 0;
-//     unsigned char oct[4] = { 0 }, cnt = 0, cnt1 = 0, i, buf[5];
+void extractIpAddress(unsigned char* sourceString, short* ipAddress)
+{
+    unsigned short len = 0;
+    unsigned char oct[4] = { 0 }, cnt = 0, cnt1 = 0, i, buf[5];
 
-//     len = strlen(sourceString);
-//     for (i = 0; i < len; i++) {
-//         if (sourceString[i] != '.') {
-//             buf[cnt++] = sourceString[i];
-//         }
-//         if (sourceString[i] == '.' || i == len - 1) {
-//             buf[cnt] = '\0';
-//             cnt = 0;
-//             oct[cnt1++] = atoi(buf);
-//         }
-//     }
-//     ipAddress[0] = oct[0];
-//     ipAddress[1] = oct[1];
-//     ipAddress[2] = oct[2];
-//     ipAddress[3] = oct[3];
-// }
+    len = strlen(sourceString);
+    for (i = 0; i < len; i++) {
+        if (sourceString[i] != '.') {
+            buf[cnt++] = sourceString[i];
+        }
+        if (sourceString[i] == '.' || i == len - 1) {
+            buf[cnt] = '\0';
+            cnt = 0;
+            oct[cnt1++] = atoi(buf);
+        }
+    }
+    ipAddress[0] = oct[0];
+    ipAddress[1] = oct[1];
+    ipAddress[2] = oct[2];
+    ipAddress[3] = oct[3];
+}
 
 // void concatenate_string(char* s, char* s1)
 // {

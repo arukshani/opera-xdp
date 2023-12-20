@@ -242,11 +242,9 @@ bool prefix(const char *pre, const char *str)
 //  payload
 static void process_rx_packet(void *data, struct port_params *params, uint32_t len, u64 addr, struct return_process_rx *return_val)
 {
-	// int is_veth = strcmp(params->iface, "veth1");
-	// int is_veth3 = strcmp(params->iface, "veth3");
+	
 	int is_nic = strcmp(params->iface, nic_iface);
 
-	// if (is_veth == 0 || is_veth3 == 0)
     if (prefix(OUTER_VETH_PREFIX, params->iface))
 	{
 		// printf("From VETH \n");
@@ -317,10 +315,25 @@ static void process_rx_packet(void *data, struct port_params *params, uint32_t l
 
 		outer_eth_hdr = (struct ethhdr *)data;
 		ether_addr_copy_assignment(outer_eth_hdr->h_source, &out_eth_src);
-		struct ip_set *dest_ip_index = mg_map_get(&ip_table, inner_ip_hdr_tmp->daddr);
-		
-		// int mac_index;
-		// getRouteElement(route_table, dest_ip_index->index, topo, &mac_index);
+
+		char dest_char[16];
+		// snprintf(dest_char, 16, "%pI4", inner_ip_hdr_tmp->daddr); 
+		// short dest_ipAddress[4];
+		// extractIpAddress(dest_char, &dest_ipAddress[0]);
+		unsigned char bytes[4];
+		bytes[0] = inner_ip_hdr_tmp->daddr & 0xFF;
+		bytes[1] = (inner_ip_hdr_tmp->daddr >> 8) & 0xFF;
+		bytes[2] = (inner_ip_hdr_tmp->daddr >> 16) & 0xFF;
+		bytes[3] = (inner_ip_hdr_tmp->daddr >> 24) & 0xFF;   
+		// printf("%d.%d.%d.%d\n", bytes[0], bytes[1], bytes[2], bytes[3]);
+		snprintf(dest_char, 16, "%d.%d.%d.%d", bytes[0], bytes[1], bytes[2], 1); 
+		struct sockaddr_in construct_dest_ip;
+		inet_aton(dest_char, &construct_dest_ip.sin_addr);
+
+		// printf("construct_dest_ip.sin_addr.s_addr: %d \n", construct_dest_ip.sin_addr.s_addr);
+		struct ip_set *dest_ip_index = mg_map_get(&ip_table, construct_dest_ip.sin_addr.s_addr);
+		// printf("dest_ip_index->index: %d \n", dest_ip_index->index);
+		// struct ip_set *dest_ip_index = mg_map_get(&ip_table, inner_ip_hdr_tmp->daddr);
 		struct mac_addr *dest_mac_val = mg_map_get(&mac_table, dest_ip_index->index);
 		return_val->ring_buf_index = dest_ip_index->index - 1;
 		ether_addr_copy_assignment(outer_eth_hdr->h_dest, dest_mac_val->bytes);
@@ -333,6 +346,7 @@ static void process_rx_packet(void *data, struct port_params *params, uint32_t l
 		// outer_iphdr->protocol = IPPROTO_GRE; //new
 		outer_iphdr->protocol = IPPROTO_UDP; //new
 		outer_iphdr->tot_len = bpf_htons(olen + bpf_ntohs(inner_ip_hdr_tmp->tot_len));
+		outer_iphdr->daddr = construct_dest_ip.sin_addr.s_addr;
 
 		//new
 		struct udphdr *udp_hdr;
@@ -348,21 +362,21 @@ static void process_rx_packet(void *data, struct port_params *params, uint32_t l
 									 sizeof(struct ethhdr) + sizeof(struct iphdr) + sizeof(struct udphdr));
 
 		gre_hdr->proto = bpf_htons(ETH_P_TEB);
-		if (strcmp(params->iface, "crout12") == 0) {
+		if (strcmp(params->iface, "vethout12") == 0) {
 			gre_hdr->flags = 0;
-		} else if (strcmp(params->iface, "crout13") == 0) {
+		} else if (strcmp(params->iface, "vethout13") == 0) {
 			gre_hdr->flags = 1;
-		} else if (strcmp(params->iface, "crout14") == 0) {
+		} else if (strcmp(params->iface, "vethout14") == 0) {
 			gre_hdr->flags = 2;
-		} else if (strcmp(params->iface, "crout15") == 0) {
+		} else if (strcmp(params->iface, "vethout15") == 0) {
 			gre_hdr->flags = 3;
-		} else if (strcmp(params->iface, "crout16") == 0) {
+		} else if (strcmp(params->iface, "vethout16") == 0) {
 			gre_hdr->flags = 4;
-		} else if (strcmp(params->iface, "crout17") == 0) {
+		} else if (strcmp(params->iface, "vethout17") == 0) {
 			gre_hdr->flags = 5;
-		} else if (strcmp(params->iface, "crout18") == 0) {
+		} else if (strcmp(params->iface, "vethout18") == 0) {
 			gre_hdr->flags = 6;
-		} else if (strcmp(params->iface, "crout19") == 0) {
+		} else if (strcmp(params->iface, "vethout19") == 0) {
 			gre_hdr->flags = 7;
 		}
 		
@@ -377,6 +391,9 @@ static void process_rx_packet(void *data, struct port_params *params, uint32_t l
 // 		time_index++;
 // #endif
 		// printf("From NIC \n");
+		// printf("src_ip: %d \n", src_ip);
+		
+
 		struct ethhdr *eth = (struct ethhdr *)data;
 		struct iphdr *outer_ip_hdr = (struct iphdr *)(data +
 													  sizeof(struct ethhdr));
@@ -396,10 +413,15 @@ static void process_rx_packet(void *data, struct port_params *params, uint32_t l
 		// 	printf("inner eth proto is not ETH_P_IP %x \n", inner_eth->h_proto);
 		//     return false;
 		// }
+		
 
 		struct iphdr *inner_ip_hdr = (struct iphdr *)(inner_eth + 1);
-		// if (src_ip != (inner_ip_hdr->daddr) || veth3_ip_addr != (inner_ip_hdr->daddr))
-		if (src_ip != (inner_ip_hdr->daddr))
+
+		// printf("outer_ip_hdr->daddr: %d \n", outer_ip_hdr->daddr);
+		// printf("inner_ip_hdr->daddr: %d \n", inner_ip_hdr->daddr);
+
+		// if (src_ip != (inner_ip_hdr->daddr))
+		if (src_ip != (outer_ip_hdr->daddr))
 		{
 			// printf("Not destined for local node \n");
 			// send it back out NIC
@@ -432,17 +454,9 @@ static void process_rx_packet(void *data, struct port_params *params, uint32_t l
 			//  puts("\n");
 
 			return_val->new_len = 1; // indicates that packet should go back out through NIC
-			// return return_val;
 		}
 		else
 		{
-			// printf("Destined for local node \n");
-
-			// if (greh->flags == 0) {
-			// 	return_val->which_veth = 0;
-			// } else if (greh->flags == 1) {
-			// 	return_val->which_veth = 1;
-			// }
 
 			return_val->which_veth = greh->flags;
 
@@ -468,11 +482,9 @@ static void process_rx_packet(void *data, struct port_params *params, uint32_t l
 			//  #endif
 
 			return_val->new_len = new_len;
-			// return return_val;
+			
 		}
 	}
-
-	// return return_val;
 }
 
 
