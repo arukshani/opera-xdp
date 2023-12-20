@@ -31,3 +31,21 @@ sudo ip link set dev ens2np0 up
 sudo ip link set ens2np0 mtu 3490
 
 ```
+
+```
+
+cd /home/dathapathu/emulator/github_code/opera-xdp/v5-corundum
+cd /home/dathapathu/emulator/github_code/opera-xdp/opera-test-tools
+
+sudo taskset --cpu-list 32 ./sw_corundum_1 10.20.1.1 120 3 3
+sudo taskset --cpu-list 32 ./sw_corundum_1 10.20.2.1 120 3 3
+
+sudo taskset --cpu-list 32 ./sw_corundum_1 10.20.1.1 120 3 3 config/node2.csv
+sudo taskset --cpu-list 32 ./sw_corundum_1 10.20.2.1 120 3 3 config/node1.csv
+
+sudo ./uq_tcp_ns_client.sh -n 0 -i ens2np0
+sudo ./uq_tcp_ns_server.sh -n 0 -i ens2np0
+
+sudo ./uq_mp_server.sh -n 5
+sudo ./uq_mp_client.sh -n 5
+```

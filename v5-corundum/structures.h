@@ -207,6 +207,7 @@ char *nic_iface;
 struct HashNode** ip_set;
 mg_Map mac_table; //mac table
 mg_Map ip_table; //ip table
+mg_Map ns_ip_table; //ns ip table
 mg_Map dest_queue_table; //destination queue table
 mg_Map ns_table;
 struct ip_set {
