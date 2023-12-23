@@ -555,6 +555,7 @@ int main(int argc, char **argv)
 	for (i = veth_tx_threads_start_index; i < n_threads; i++)
 	{
 		struct thread_data *t = &thread_data[i];
+		// printf("one veth side queue for veth tx~~~~~~~~~~~~~~~~~~~~~~\n");
 
 		t->ports_tx[0] = ports[start_index_for_veth_ports]; //veth
 		start_index_for_veth_ports = start_index_for_veth_ports + 1;

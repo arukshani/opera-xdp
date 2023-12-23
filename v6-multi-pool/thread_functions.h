@@ -1,3 +1,37 @@
+static void print_pkt_info(uint8_t *pkt, uint32_t len)
+{
+	struct ethhdr *eth = (struct ethhdr *) pkt;
+	__u16 proto = ntohs(eth->h_proto);
+
+	char *fmt = "DEBUG-pkt len=%04d Eth-proto:0x%X %s "
+		"src:%s -> dst:%s\n";
+	char src_str[128] = { 0 };
+	char dst_str[128] = { 0 };
+
+    // printf(fmt, len, proto, "Unknown", "", "");
+
+	if (proto == ETH_P_IP) {
+		struct iphdr *ipv4 = (struct iphdr *) (eth + 1);
+		inet_ntop(AF_INET, &ipv4->saddr, src_str, sizeof(src_str));
+		inet_ntop(AF_INET, &ipv4->daddr, dst_str, sizeof(dst_str));
+		printf(fmt, len, proto, "IPv4", src_str, dst_str);
+	} else {
+		printf(fmt, len, proto, "Unknown", "", "");
+	}
+    
+    
+    // else if (proto == ETH_P_ARP) {
+	// 	printf(fmt, len, proto, "ARP", "", "");
+	// } else if (proto == ETH_P_IPV6) {
+	// 	struct ipv6hdr *ipv6 = (struct ipv6hdr *) (eth + 1);
+	// 	inet_ntop(AF_INET6, &ipv6->saddr, src_str, sizeof(src_str));
+	// 	inet_ntop(AF_INET6, &ipv6->daddr, dst_str, sizeof(dst_str));
+	// 	printf(fmt, len, proto, "IPv6", src_str, dst_str);
+	// } else {
+	// 	printf(fmt, len, proto, "Unknown", "", "");
+	// }
+}
+
 static inline void ether_addr_copy_assignment(u8 *dst, const u8 *src)
 {
 	u16 *a = (u16 *)dst;
@@ -25,6 +59,8 @@ port_tx_burst_collector(struct port *p, struct burst_tx_collector *b, int free_b
 
 	n_pkts = xsk_ring_cons__peek(&bp->umem_cq, n_pkts, &pos);
 
+    // printf("cq has packets: %d \n", n_pkts);
+
 
 	for (i = 0; i < n_pkts; i++)
 	{
@@ -43,6 +79,7 @@ port_tx_burst_collector(struct port *p, struct burst_tx_collector *b, int free_b
 		status = xsk_ring_prod__reserve(&p->txq, n_pkts, &pos);
 		if (status == n_pkts)
 		{
+            // printf("status == n_pkts \n");
 			break;
 		}
 
@@ -55,9 +92,10 @@ port_tx_burst_collector(struct port *p, struct burst_tx_collector *b, int free_b
 
 	for (i = 0; i < n_pkts; i++)
 	{
-		// u8 *pkt = xsk_umem__get_data(p->params.bp->addr, b->addr[i]);
-		memcpy(xsk_umem__get_data(p->params.bp->addr, b->addr[i]), b->pkt[i], b->len[i]);
-		xsk_ring_prod__tx_desc(&p->txq, pos + i)->addr = b->addr[i];
+        u64 pkt_addr =  bcache_cons_tx(p->bc);
+		u8 *pkt = xsk_umem__get_data(p->params.bp->addr, pkt_addr);
+		memcpy(xsk_umem__get_data(p->params.bp->addr, pkt_addr), b->pkt[i], b->len[i]);
+		xsk_ring_prod__tx_desc(&p->txq, pos + i)->addr = pkt_addr;
 		xsk_ring_prod__tx_desc(&p->txq, pos + i)->len = b->len[i];
 	}
 
@@ -86,7 +124,7 @@ static void process_rx_packet(void *data, struct port_params *params, uint32_t l
 
     if (prefix(OUTER_VETH_PREFIX, params->iface))
 	{
-		printf("From VETH \n");
+		// printf("From VETH \n");
 		struct iphdr *outer_iphdr;
 		struct ethhdr *outer_eth_hdr;
 
@@ -136,6 +174,8 @@ static void process_rx_packet(void *data, struct port_params *params, uint32_t l
 		int offset = 0 + encap_size;
 		u64 new_addr = addr + offset;
 		int new_len = len + encap_size;
+        // printf("len: %d \n", len);
+        // printf("new_len: %d \n", new_len);
 
 		u64 new_new_addr = xsk_umem__add_offset_to_addr(new_addr);
 		u8 *new_data = xsk_umem__get_data(params->bp->addr, new_new_addr);
@@ -304,6 +344,7 @@ static void process_rx_packet(void *data, struct port_params *params, uint32_t l
 			// send it to local veth
 			void *cutoff_pos = greh + 1;
 			int cutoff_len = (int)(cutoff_pos - data);
+            // printf("cutoff_len: %d \n", cutoff_len);
 			int new_len = len - cutoff_len;
 
 			int offset = 0 + cutoff_len;
@@ -356,7 +397,7 @@ port_rx_burst(struct port *p, struct mpmc_queue *local_dest_queue[NUM_OF_PER_DES
 		}
 		return 0;
 	}
-    printf("n_pkts: %d \n", n_pkts);
+    // printf("n_pkts: %d \n", n_pkts);
 
 	struct return_process_rx *ret_val = calloc(1, sizeof(struct return_process_rx));
     for (i = 0; i < n_pkts; i++)
@@ -372,16 +413,17 @@ port_rx_burst(struct port *p, struct mpmc_queue *local_dest_queue[NUM_OF_PER_DES
         {
             if (local_dest_queue[ret_val->ring_buf_index] != NULL)
             {
-                printf("there is a loc dest queue: %d \n", ret_val->ring_buf_index);
+                // printf("there is a loc dest queue: %d \n", ret_val->ring_buf_index);
                 struct burst_tx *btx = calloc(1, sizeof(struct burst_tx));
                 // btx->pkt = pkt;
-                // u8 *updated_pkt = xsk_umem__get_data(p->params.bp->addr, addr);
-                memcpy(btx->pkt, xsk_umem__get_data(p->params.bp->addr, addr), ret_val->new_len);
-                printf("copy the actual packet \n");
+                u8 *updated_pkt = xsk_umem__get_data(p->params.bp->addr, addr);
+                memcpy(btx->pkt, updated_pkt, ret_val->new_len);
+                // print_pkt_info(updated_pkt, ret_val->new_len);
+                // printf("copy the actual packet \n");
                 btx->len = ret_val->new_len;
 
                 int ret = mpmc_queue_push(local_dest_queue[ret_val->ring_buf_index], (void *) btx);
-                printf("push the packet \n");
+                // printf("push the packet \n");
                 if (!ret) 
                 {
                     printf("local_dest_queue is full \n");
@@ -389,7 +431,7 @@ port_rx_burst(struct port *p, struct mpmc_queue *local_dest_queue[NUM_OF_PER_DES
                     // bcache_prod(p->bc, addr_rx);
                 }
                 bcache_prod(p->bc, addr_rx);
-                printf("release the packet \n");
+                // printf("release the packet \n");
             }
             else
             {
@@ -521,7 +563,10 @@ port_nic_rx_burst(struct port *p, struct mpmc_queue *non_local_dest_queue[NUM_OF
                 if (veth_side_queue[ret_val->which_veth] != NULL)
 				{
                     struct burst_tx *btx = calloc(1, sizeof(struct burst_tx));
-                    memcpy(btx->pkt, xsk_umem__get_data(p->params.bp->addr, addr), ret_val->new_len);
+                    u8 *updated_pkt = xsk_umem__get_data(p->params.bp->addr, addr);
+                    memcpy(btx->pkt, updated_pkt, ret_val->new_len);
+                    btx->len = ret_val->new_len;
+                    // print_pkt_info(updated_pkt, ret_val->new_len);
                     int ret = mpmc_queue_push(veth_side_queue[ret_val->which_veth], (void *) btx);
                     if (!ret) 
                     {
@@ -663,7 +708,7 @@ thread_func_nic_tx(void *arg)
                     void *obj;
                     if (mpmc_queue_pull(local_dest_queue[k], &obj) != NULL) {
                         struct burst_tx *btx = (struct burst_tx *)obj;
-                        btx_collector->addr[btx_index] = bcache_cons_tx(port_tx->bc);
+                        // btx_collector->addr[btx_index] = bcache_cons_tx(port_tx->bc);
                         btx_collector->len[btx_index] = btx->len;
                         memcpy(btx_collector->pkt[btx_index], btx->pkt, btx->len);
                         free(obj);
@@ -677,7 +722,7 @@ thread_func_nic_tx(void *arg)
             }
             if (btx_index)
             {
-                printf("there are packets to tx \n");
+                // printf("there are packets to tx \n");
                 port_tx_burst_collector(port_tx, btx_collector, 0, 0);
             } 
         
@@ -713,9 +758,9 @@ thread_func_veth_tx(void *arg)
                 void *obj;
                 if (mpmc_queue_pull(veth_side_queue, &obj) != NULL) {
                     struct burst_tx *btx = (struct burst_tx *)obj;
-                    btx_collector->addr[btx_index] = bcache_cons_tx(port_tx->bc);
+                    // btx_collector->addr[btx_index] = bcache_cons_tx(port_tx->bc);
                     btx_collector->len[btx_index] = btx->len;
-                     memcpy(btx_collector->pkt[btx_index], btx->pkt, btx->len);
+                    memcpy(btx_collector->pkt[btx_index], btx->pkt, btx->len);
                     free(obj);
 
                     btx_index++;
@@ -729,6 +774,7 @@ thread_func_veth_tx(void *arg)
 		}
         if (btx_index)
         {
+            // printf("There are packets to goto veth tx \n");
             port_tx_burst_collector(port_tx, btx_collector, 0, 0);
         } 
     
