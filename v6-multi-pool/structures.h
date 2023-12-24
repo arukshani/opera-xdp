@@ -91,6 +91,12 @@ static struct xdp_program *xdp_prog[26];
  * to share the same UMEM area, which is used as the buffer pool memory.
  */
 //=======================Mempool related===========================
+struct transit_bpool {
+	void *addr;
+	u64 *buffers;
+	u64 n_buffers;
+};
+
 struct bpool_params {
 	u32 n_buffers;
 	u32 buffer_size;
@@ -164,7 +170,7 @@ struct bcache {
  */
 static const struct bpool_params bpool_params_default = {
 	// .n_buffers = 64 * 1024,
-	.n_buffers = 4096 * 12,
+	.n_buffers = 4096 * 10,
 	.buffer_size = XSK_UMEM__DEFAULT_FRAME_SIZE,
 	.mmap_flags = 0,
 
@@ -280,6 +286,8 @@ struct thread_data {
 	struct mpmc_queue *non_local_dest_queue_array[NUM_OF_PER_DEST_QUEUES];
 	struct mpmc_queue *veth_side_queue_array[13];
 	int assigned_queue_count;
+	struct mpmc_queue *transit_local_dest_queue_array[NUM_OF_PER_DEST_QUEUES];
+	struct mpmc_queue *transit_veth_side_queue_array[13];
 };
 
 static pthread_t threads[MAX_THREADS];
@@ -291,6 +299,11 @@ static int n_threads;
 struct mpmc_queue *veth_side_queue[13];
 struct mpmc_queue *local_per_dest_queue[NUM_OF_PER_DEST_QUEUES];
 struct mpmc_queue *non_local_per_dest_queue[NUM_OF_PER_DEST_QUEUES];
+
+struct mpmc_queue *transit_veth_side_queue[13];
+struct mpmc_queue *transit_local_per_dest_queue[NUM_OF_PER_DEST_QUEUES];
+static struct transit_bpool *transit_bp_veth[13];
+static struct transit_bpool *transit_bp_local_dest[NUM_OF_PER_DEST_QUEUES];
 
 __u32 t1ms;
 

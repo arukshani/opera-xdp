@@ -370,11 +370,13 @@ static void process_rx_packet(void *data, struct port_params *params, uint32_t l
 }
 
 static inline u32
-port_rx_burst(struct port *p, struct mpmc_queue *local_dest_queue[NUM_OF_PER_DEST_QUEUES])
+port_rx_burst(struct port *p, struct mpmc_queue *local_dest_queue[NUM_OF_PER_DEST_QUEUES],
+								struct mpmc_queue *transit_local_dest_queue[NUM_OF_PER_DEST_QUEUES])
 {
     u32 n_pkts, pos, i;
 
     n_pkts = bcache_cons_check(p->bc, MAX_BURST_RX);
+    
 
 	if (!n_pkts) {
 		printf("There are no consumer slabs....\n");
@@ -398,6 +400,7 @@ port_rx_burst(struct port *p, struct mpmc_queue *local_dest_queue[NUM_OF_PER_DES
 		return 0;
 	}
     // printf("n_pkts: %d \n", n_pkts);
+    // printf("bp->n_slabs_available %lld \n", p->bc->bp->n_slabs_available);
 
 	struct return_process_rx *ret_val = calloc(1, sizeof(struct return_process_rx));
     for (i = 0; i < n_pkts; i++)
@@ -417,18 +420,26 @@ port_rx_burst(struct port *p, struct mpmc_queue *local_dest_queue[NUM_OF_PER_DES
                 struct burst_tx *btx = calloc(1, sizeof(struct burst_tx));
                 // btx->pkt = pkt;
                 u8 *updated_pkt = xsk_umem__get_data(p->params.bp->addr, addr);
-                memcpy(btx->pkt, updated_pkt, ret_val->new_len);
+                // memcpy(btx->pkt, updated_pkt, ret_val->new_len);
                 // print_pkt_info(updated_pkt, ret_val->new_len);
                 // printf("copy the actual packet \n");
+				void *obj;
+				if (mpmc_queue_pull(transit_local_dest_queue[ret_val->ring_buf_index], &obj) != NULL) {
+					u64 transit_addr = (u64 *)obj;
+					// printf("pull transit_addr: %d \n", transit_addr);
+					transit_addr = updated_pkt;
+					// memcpy(transit_addr, updated_pkt, ret_val->new_len);
+					// *transit_addr = prev;
+					btx->addr = transit_addr;
+				}
                 btx->len = ret_val->new_len;
 
+                // free(btx);
                 int ret = mpmc_queue_push(local_dest_queue[ret_val->ring_buf_index], (void *) btx);
                 // printf("push the packet \n");
                 if (!ret) 
                 {
                     printf("local_dest_queue is full \n");
-                    //Release buffers to pool
-                    // bcache_prod(p->bc, addr_rx);
                 }
                 bcache_prod(p->bc, addr_rx);
                 // printf("release the packet \n");
@@ -490,18 +501,20 @@ thread_func_veth_rx(void *arg)
 	pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpu_cores);
 
 	struct mpmc_queue *local_dest_queue[NUM_OF_PER_DEST_QUEUES];
+	struct mpmc_queue *transit_local_dest_queue[NUM_OF_PER_DEST_QUEUES];
 
 	int x = 0;
 	for (x = 0; x < NUM_OF_PER_DEST_QUEUES; x++)
 	{
 		local_dest_queue[x] = t->local_dest_queue_array[x];
+		transit_local_dest_queue[x] = t->transit_local_dest_queue_array[x];
 	}
 
     while (!t->quit)
 	{
         struct port *port_rx = t->ports_rx[0];
 		u32 n_pkts;
-		n_pkts = port_rx_burst(port_rx, local_dest_queue);
+		n_pkts = port_rx_burst(port_rx, local_dest_queue, transit_local_dest_queue);
 			
 		if (!n_pkts) 
 		{

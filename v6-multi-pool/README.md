@@ -54,4 +54,6 @@ sudo taskset --cpu-list 32 ./sw_corundum_main 10.20.2.1 120 1 1 config/node1.csv
 
 sudo ./uq_mp_server.sh -n 0
 sudo ./uq_mp_client.sh -n 0
+
+sudo ip netns exec ns1 bash
 ```

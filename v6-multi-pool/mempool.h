@@ -528,3 +528,86 @@ bpool_free(struct bpool *bp)
 	free(bp);
 }
 
+//======================================Transit Pool Related====================================
+
+static inline u64
+get_transit_buffer_addr(struct transit_bpool *t_bp)
+{
+	u64 n_buffers_cons = t_bp->n_buffers - 1;
+	u64 buffer;
+
+	buffer = t_bp->buffers[n_buffers_cons];
+	t_bp->n_buffers = n_buffers_cons;
+	return buffer;
+}
+
+static struct transit_bpool *
+transit_bpool_init()
+{
+	struct rlimit r = {RLIM_INFINITY, RLIM_INFINITY};
+	u64 n_buffers;
+	u64 buffers_size;
+	u64 total_size, i;
+	struct transit_bpool *bp;
+	u8 *p;
+	int status;
+
+	/* mmap prep. */
+	if (setrlimit(RLIMIT_MEMLOCK, &r))
+		return NULL;
+
+	/* bpool internals dimensioning. */
+	n_buffers = 4096;
+	buffers_size = n_buffers * sizeof(u64);
+	total_size = sizeof(struct transit_bpool) + buffers_size;
+
+	/* bpool memory allocation. */
+	p = calloc(total_size, sizeof(u8)); // store the address of the bool memory block
+	if (!p)
+		return NULL;
+
+	/* bpool memory initialization. */
+	bp = (struct transit_bpool *)p; // address of bpool
+
+	bp->buffers = (u64 *)&p[sizeof(struct transit_bpool)];
+	bp->n_buffers = n_buffers;
+
+	for (i = 0; i < n_buffers; i++)
+		bp->buffers[i] = i * XSK_UMEM__DEFAULT_FRAME_SIZE;
+
+	/* lock. */
+	// status = pthread_mutex_init(&bp->lock, NULL);
+	// if (status)
+	// {
+	// 	free(p);
+	// 	return NULL;
+	// }
+
+	/* mmap. */
+	bp->addr = mmap(NULL,
+					n_buffers * XSK_UMEM__DEFAULT_FRAME_SIZE,
+					PROT_READ | PROT_WRITE,
+					MAP_PRIVATE | MAP_ANONYMOUS | 0,
+					-1,
+					0);
+	if (bp->addr == MAP_FAILED)
+	{
+		// pthread_mutex_destroy(&bp->lock);
+		free(p);
+		printf("mem pool mmap failed \n");
+		return NULL;
+	}
+
+	return bp;
+}
+
+static void
+transit_bpool_free(struct transit_bpool *bp)
+{
+	if (!bp)
+		return;
+
+	munmap(bp->addr, bp->n_buffers * XSK_UMEM__DEFAULT_FRAME_SIZE);
+	free(bp);
+}
+

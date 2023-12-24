@@ -442,12 +442,37 @@ int main(int argc, char **argv)
 	struct mpmc_queue return_path_veth_queue[13];
 	struct mpmc_queue local_dest_queue[NUM_OF_PER_DEST_QUEUES];
 	struct mpmc_queue non_local_dest_queue[NUM_OF_PER_DEST_QUEUES];
+
+	struct mpmc_queue trnasit_veth_queue[13];
+	struct mpmc_queue transit_dest_queue[NUM_OF_PER_DEST_QUEUES];
 	
 	// local queues
 	for (i = 0; i < NUM_OF_PER_DEST_QUEUES; i++)
 	{
 		mpmc_queue_init(&local_dest_queue[i], MAX_BURST_TX_OBJS, &memtype_heap);
 		local_per_dest_queue[i] = &local_dest_queue[i];
+
+		mpmc_queue_init(&transit_dest_queue[i], MAX_BURST_TX_OBJS, &memtype_heap);
+		transit_local_per_dest_queue[i] = &transit_dest_queue[i];
+
+		transit_bp_local_dest[i] = transit_bpool_init();
+
+		int j;
+		for (j = 0; j < MAX_BURST_TX_OBJS; j++)
+		// for (j = 0; j < 10; j++)
+		{
+			u64 transit_addr = get_transit_buffer_addr(transit_bp_local_dest[i]);
+			// if (i == 0)
+			// {
+			// 	printf("push transit_addr: %d \n", transit_addr);
+			// }
+			
+			int ret = mpmc_queue_push(transit_local_per_dest_queue[i], (void *)transit_addr);
+			if (!ret) 
+			{
+				printf("veth_side_queue is full \n");
+			}
+		}
 	}
 	
 
@@ -465,6 +490,21 @@ int main(int argc, char **argv)
 	{
 		mpmc_queue_init(&return_path_veth_queue[w], MAX_BURST_TX_OBJS, &memtype_heap);
 		veth_side_queue[w] = &return_path_veth_queue[w];
+
+		mpmc_queue_init(&trnasit_veth_queue[w], MAX_BURST_TX_OBJS, &memtype_heap);
+		transit_veth_side_queue[w] = &trnasit_veth_queue[w];
+
+		transit_bp_veth[w] = transit_bpool_init();
+
+		int j;
+		for (j = 0; j < MAX_BURST_TX_OBJS; j++)
+		{
+			int ret = mpmc_queue_push(transit_veth_side_queue[w], (void *)get_transit_buffer_addr(transit_bp_veth[w]));
+			if (!ret) 
+			{
+				printf("veth_side_queue is full \n");
+			}
+		}
 	}
 
 	/* NIC TX Threads. */
@@ -485,6 +525,7 @@ int main(int argc, char **argv)
 		{
 			t->ports_tx[k] = ports[queue_index];
 			t->local_dest_queue_array[k] = local_per_dest_queue[queue_index];
+			t->transit_local_dest_queue_array[k] = transit_local_per_dest_queue[queue_index];
 			// printf("NIC TX: port & queue %d : thread %d: \n", queue_index, i);
 			queue_index++;
 		}
@@ -522,6 +563,7 @@ int main(int argc, char **argv)
         for (g = 0; g < veth_port_count; g++)
         {
             t->veth_side_queue_array[g] = veth_side_queue[g];
+			t->transit_veth_side_queue_array[g] = transit_veth_side_queue[g];
         }
 
         t->n_ports_rx = 1;
@@ -542,6 +584,7 @@ int main(int argc, char **argv)
 		for (v=0; v < NUM_OF_PER_DEST_QUEUES; v++) 
 		{
 			t->local_dest_queue_array[v] = local_per_dest_queue[v];
+			t->transit_local_dest_queue_array[v] = transit_local_per_dest_queue[v];
 		}
 		t->n_ports_rx = 1;
 	}
@@ -560,6 +603,7 @@ int main(int argc, char **argv)
 		t->ports_tx[0] = ports[start_index_for_veth_ports]; //veth
 		start_index_for_veth_ports = start_index_for_veth_ports + 1;
 		t->veth_side_queue_array[0] = veth_side_queue[m];
+		t->transit_veth_side_queue_array[0] = transit_veth_side_queue[m];
 		m = m + 1;
 		t->n_ports_rx = 1;
 	}
@@ -652,7 +696,7 @@ int main(int argc, char **argv)
 		ns_diff = ns1 - ns0;
 		ns0 = ns1;
 
-		print_port_stats_all(ns_diff);
+		// print_port_stats_all(ns_diff);
 	}
 
 	/* Threads completion. */
@@ -735,6 +779,8 @@ int main(int argc, char **argv)
 		int ret = mpmc_queue_destroy(veth_side_queue[w]);
 		if (ret)
 			printf("Failed to destroy queue: %d", ret);
+
+		transit_bpool_free(transit_bp_veth[w]);
 	}
 
 	for (w = 0; w < NUM_OF_PER_DEST_QUEUES; w++)
@@ -746,6 +792,8 @@ int main(int argc, char **argv)
 		ret = mpmc_queue_destroy(non_local_per_dest_queue[w]);
 		if (ret)
 			printf("Failed to destroy queue: %d", ret);
+
+		transit_bpool_free(transit_bp_local_dest[w]);
 	}
 
 	return 0;
