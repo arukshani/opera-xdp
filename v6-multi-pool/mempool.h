@@ -93,6 +93,54 @@ bcache_cons_check(struct bcache *bc, u32 n_buffers)
 	return n_buffers;
 }
 
+static inline u32
+bcache_cons_tx_check(struct bcache *bc, u32 n_buffers)
+{
+	struct bpool *bp = bc->bp;
+	u64 n_buffers_per_slab = bp->params.n_buffers_per_slab;
+	u64 n_buffers_cons_tx = bc->n_buffers_cons_tx;
+	u64 n_slabs_available;
+	u64 *slab_full;
+
+	/*
+	 * Consumer slab is not empty: Use what's available locally. Do not
+	 * look for more buffers from the pool when the ask can only be
+	 * partially satisfied.
+	 */
+
+	if (n_buffers_cons_tx)
+	{
+		// printf("bc->n_buffers_cons %lld not empty \n", n_buffers_cons);
+		return (n_buffers_cons_tx < n_buffers) ? n_buffers_cons_tx : n_buffers;
+	}
+
+	/*
+	 * Consumer slab is empty: look to trade the current consumer slab
+	 * (full) for a full slab from the pool, if any is available.
+	 */
+	pthread_mutex_lock(&bp->lock);
+	n_slabs_available = bp->n_slabs_available;
+	// printf("n_buffers_cons %lld \n", n_buffers_cons);
+	if (!n_slabs_available)
+	{
+		pthread_mutex_unlock(&bp->lock);
+		// printf("there are no consumer slabs \n");
+		return 0;
+	}
+
+	n_slabs_available--;
+	slab_full = bp->slabs[n_slabs_available];
+	bp->slabs[n_slabs_available] = bc->slab_cons_tx;
+	bp->n_slabs_available = n_slabs_available;
+	pthread_mutex_unlock(&bp->lock);
+
+	// printf("after n_slabs_available--  %lld \n", bp->n_slabs_available);
+
+	bc->slab_cons_tx = slab_full;
+	bc->n_buffers_cons_tx = n_buffers_per_slab;
+	return n_buffers;
+}
+
 static u32
 bcache_slab_size(struct bcache *bc)
 {
@@ -161,7 +209,7 @@ bcache_cons_tx(struct bcache *bc)
 
 	buffer = bc->slab_cons_tx[n_buffers_cons_tx];
 	bc->n_buffers_cons_tx = n_buffers_cons_tx;
-	// printf("bc->n_buffers_cons %lld \n", n_buffers_cons);
+	// printf("bc->n_buffers_cons_tx %lld \n", n_buffers_cons_tx);
 	return buffer;
 }
 

@@ -47,66 +47,6 @@ bool prefix(const char *pre, const char *str)
     return strncmp(pre, str, strlen(pre)) == 0;
 }
 
-static inline void
-port_tx_burst_collector(struct port *p, struct burst_tx_collector *b, int free_btx, int wait_all)
-{
-	struct bpool *bp = p->bc->bp;
-	u32 n_pkts, pos, i;
-	int status;
-
-	/* UMEM CQ. */
-	n_pkts = p->params.bp->umem_cfg.comp_size;
-
-	n_pkts = xsk_ring_cons__peek(&bp->umem_cq, n_pkts, &pos);
-
-    // printf("cq has packets: %d \n", n_pkts);
-
-
-	for (i = 0; i < n_pkts; i++)
-	{
-		u64 addr = *xsk_ring_cons__comp_addr(&bp->umem_cq, pos + i);
-
-		bcache_prod_tx(p->bc, addr);
-	}
-
-	xsk_ring_cons__release(&bp->umem_cq, n_pkts);
-
-	/* TXQ. */
-	n_pkts = b->n_pkts;
-
-	for (;;)
-	{
-		status = xsk_ring_prod__reserve(&p->txq, n_pkts, &pos);
-		if (status == n_pkts)
-		{
-            // printf("status == n_pkts \n");
-			break;
-		}
-
-		if (xsk_ring_prod__needs_wakeup(&p->txq))
-			sendto(xsk_socket__fd(p->xsk), NULL, 0, MSG_DONTWAIT,
-			       NULL, 0);
-
-		
-	}
-
-	for (i = 0; i < n_pkts; i++)
-	{
-        u64 pkt_addr =  bcache_cons_tx(p->bc);
-		u8 *pkt = xsk_umem__get_data(p->params.bp->addr, pkt_addr);
-		memcpy(xsk_umem__get_data(p->params.bp->addr, pkt_addr), b->pkt[i], b->len[i]);
-		xsk_ring_prod__tx_desc(&p->txq, pos + i)->addr = pkt_addr;
-		xsk_ring_prod__tx_desc(&p->txq, pos + i)->len = b->len[i];
-	}
-
-	xsk_ring_prod__submit(&p->txq, n_pkts);
-	if (xsk_ring_prod__needs_wakeup(&p->txq))
-			sendto(xsk_socket__fd(p->xsk), NULL, 0, MSG_DONTWAIT,
-			       NULL, 0);
-
-	p->n_pkts_tx += n_pkts;
-}
-
 
 // Header structure of GRE tap packet:
 //  Ethernet type of GRE encapsulated packet is ETH_P_TEB (gretap)
@@ -417,30 +357,38 @@ port_rx_burst(struct port *p, struct mpmc_queue *local_dest_queue[NUM_OF_PER_DES
             if (local_dest_queue[ret_val->ring_buf_index] != NULL)
             {
                 // printf("there is a loc dest queue: %d \n", ret_val->ring_buf_index);
-                struct burst_tx *btx = calloc(1, sizeof(struct burst_tx));
+                
                 // btx->pkt = pkt;
                 u8 *updated_pkt = xsk_umem__get_data(p->params.bp->addr, addr);
                 // memcpy(btx->pkt, updated_pkt, ret_val->new_len);
                 // print_pkt_info(updated_pkt, ret_val->new_len);
                 // printf("copy the actual packet \n");
-				void *obj;
-				if (mpmc_queue_pull(transit_local_dest_queue[ret_val->ring_buf_index], &obj) != NULL) {
-					u64 transit_addr = (u64 *)obj;
-					// printf("pull transit_addr: %d \n", transit_addr);
-					transit_addr = updated_pkt;
-					// memcpy(transit_addr, updated_pkt, ret_val->new_len);
-					// *transit_addr = prev;
-					btx->addr = transit_addr;
+				
+				if (transit_local_dest_queue[ret_val->ring_buf_index] != NULL)
+            	{
+					void *obj;
+					if (mpmc_queue_pull(transit_local_dest_queue[ret_val->ring_buf_index], &obj) != NULL) {
+						struct burst_tx *btx = calloc(1, sizeof(struct burst_tx));
+						u64 transit_addr = (u64 *)obj;
+						// printf("pull transit_addr: %d \n", transit_addr);
+						transit_addr = updated_pkt;
+						// memcpy(transit_addr, updated_pkt, ret_val->new_len);
+						// *transit_addr = prev;
+						btx->addr = transit_addr;
+						btx->len = ret_val->new_len;
+						
+						int ret = mpmc_queue_push(local_dest_queue[ret_val->ring_buf_index], (void *) btx);
+						if (!ret) 
+						{
+							printf("local_dest_queue is full \n");
+						}
+					} else {
+						printf("transit_local_dest_queue returns NULL obj \n");
+					}
+				} else {
+					printf("transit_local_dest_queue IS NULL \n");
 				}
-                btx->len = ret_val->new_len;
-
-                // free(btx);
-                int ret = mpmc_queue_push(local_dest_queue[ret_val->ring_buf_index], (void *) btx);
-                // printf("push the packet \n");
-                if (!ret) 
-                {
-                    printf("local_dest_queue is full \n");
-                }
+            
                 bcache_prod(p->bc, addr_rx);
                 // printf("release the packet \n");
             }
@@ -527,7 +475,8 @@ thread_func_veth_rx(void *arg)
 }
 
 static inline u32
-port_nic_rx_burst(struct port *p, struct mpmc_queue *non_local_dest_queue[NUM_OF_PER_DEST_QUEUES], struct mpmc_queue *veth_side_queue[13])
+port_nic_rx_burst(struct port *p, struct mpmc_queue *non_local_dest_queue[NUM_OF_PER_DEST_QUEUES], 
+				struct mpmc_queue *veth_side_queue[13], struct mpmc_queue *transit_veth_side_queue[13])
 {
     u32 n_pkts, pos, i;
 
@@ -577,15 +526,21 @@ port_nic_rx_burst(struct port *p, struct mpmc_queue *non_local_dest_queue[NUM_OF
 				{
                     struct burst_tx *btx = calloc(1, sizeof(struct burst_tx));
                     u8 *updated_pkt = xsk_umem__get_data(p->params.bp->addr, addr);
-                    memcpy(btx->pkt, updated_pkt, ret_val->new_len);
+                    void *obj;
+					if (mpmc_queue_pull(transit_veth_side_queue[ret_val->which_veth], &obj) != NULL) {
+						u64 transit_addr = (u64 *)obj;
+						// printf("pull transit_addr: %d \n", transit_addr);
+						transit_addr = updated_pkt;
+						// memcpy(transit_addr, updated_pkt, ret_val->new_len);
+						// *transit_addr = prev;
+						btx->addr = transit_addr;
+					}
                     btx->len = ret_val->new_len;
                     // print_pkt_info(updated_pkt, ret_val->new_len);
                     int ret = mpmc_queue_push(veth_side_queue[ret_val->which_veth], (void *) btx);
                     if (!ret) 
                     {
                         printf("veth_side_queue is full \n");
-                        //Release buffers to pool
-                        // bcache_prod(p->bc, addr_rx);
                     }
                     bcache_prod(p->bc, addr_rx);
                 }
@@ -631,6 +586,8 @@ port_nic_rx_burst(struct port *p, struct mpmc_queue *non_local_dest_queue[NUM_OF
 
 	xsk_ring_prod__submit(&bp->umem_fq, n_pkts);
 
+	// printf("nic rx done \n");
+
 	return n_pkts;
 }
 
@@ -656,10 +613,12 @@ thread_func_nic_rx(void *arg)
 	}
 
 	struct mpmc_queue *veth_side_queue[13]; 
+	struct mpmc_queue *transit_veth_side_queue[13]; 
     
 	for (w = 0; w < veth_port_count; w++)
 	{
 		veth_side_queue[w] = t->veth_side_queue_array[w];
+		transit_veth_side_queue[w] = t->transit_veth_side_queue_array[w];
 	}
 
     while (!t->quit)
@@ -669,7 +628,7 @@ thread_func_nic_rx(void *arg)
 		{
             struct port *port_rx = t->ports_rx[k];
             u32 n_pkts;
-            n_pkts = port_nic_rx_burst(port_rx, non_local_dest_queue, veth_side_queue);
+            n_pkts = port_nic_rx_burst(port_rx, non_local_dest_queue, veth_side_queue, transit_veth_side_queue);
                 
             if (!n_pkts) 
             {
@@ -680,6 +639,126 @@ thread_func_nic_rx(void *arg)
     }
     printf("return from thread_func_veth_rx \n");
 	return NULL;
+}
+
+static inline void
+port_tx_burst_collector_nic(struct port *p, struct burst_tx_collector *b, int free_btx, int wait_all
+							, struct mpmc_queue *transit_local_dest_queue)
+{
+	struct bpool *bp = p->bc->bp;
+	u32 n_pkts, pos, i;
+	int status;
+
+	/* UMEM CQ. */
+	n_pkts = p->params.bp->umem_cfg.comp_size;
+
+	n_pkts = xsk_ring_cons__peek(&bp->umem_cq, n_pkts, &pos);
+
+    // printf("cq has packets: %d \n", n_pkts);
+
+
+	for (i = 0; i < n_pkts; i++)
+	{
+		u64 addr = *xsk_ring_cons__comp_addr(&bp->umem_cq, pos + i);
+
+		bcache_prod_tx(p->bc, addr);
+	}
+
+	xsk_ring_cons__release(&bp->umem_cq, n_pkts);
+
+	/* TXQ. */
+	n_pkts = b->n_pkts;
+
+	for (;;)
+	{
+		status = xsk_ring_prod__reserve(&p->txq, n_pkts, &pos);
+		if (status == n_pkts)
+		{
+            // printf("status == n_pkts \n");
+			break;
+		}
+
+		if (xsk_ring_prod__needs_wakeup(&p->txq))
+			sendto(xsk_socket__fd(p->xsk), NULL, 0, MSG_DONTWAIT,
+			       NULL, 0);	
+	}
+
+	// n_pkts_in_cache = bcache_cons_tx_check(p->bc, n_pkts);
+
+	// if (!n_pkts_in_cache) {
+	// 	printf("There are no consumer tx slabs....\n");
+	// 	for (i = 0; i < n_pkts; i++)
+	// 	{
+	// 		if (transit_local_dest_queue != NULL)
+	// 		{
+	// 			int ret = mpmc_queue_push(transit_local_dest_queue, (void *) b->addr[i]);
+	// 			if (!ret) 
+	// 			{
+	// 				printf("transit_local_dest_queue is full \n");
+	// 			}
+	// 		} else 
+	// 		{
+	// 			printf("transit_local_dest_queue is NULL in NIC TX \n");
+	// 		}
+	// 	}
+	// 	return;
+	// 	printf("This shouldn't print \n");
+	// }
+
+	// if (n_pkts > n_pkts_in_cache)
+	// {
+	// 	//TODO:if this ever happens give the transit buffer address back
+	// 	for (i = 0; i < n_pkts; i++)
+	// 	{
+	// 		if (transit_local_dest_queue != NULL)
+	// 		{
+	// 			int ret = mpmc_queue_push(transit_local_dest_queue, (void *) b->addr[i]);
+	// 			if (!ret) 
+	// 			{
+	// 				printf("transit_local_dest_queue is full \n");
+	// 			}
+	// 		} else 
+	// 		{
+	// 			printf("transit_local_dest_queue is NULL in NIC TX \n");
+	// 		}
+	// 	}
+	// 	printf("n_pkts: %d, n_pkts_in_cache: %d \n", n_pkts, n_pkts_in_cache);
+	// 	return;
+	// }
+	
+
+	for (i = 0; i < n_pkts; i++)
+	{
+        u64 pkt_addr =  bcache_cons_tx(p->bc);
+		u8 *pkt = xsk_umem__get_data(p->params.bp->addr, pkt_addr);
+		// printf("b->addr[i]: %d, b->len[i]: %d \n", b->addr[i], b->len[i]);
+		memcpy(pkt, b->addr[i], b->len[i]);
+		// print_pkt_info(b->addr[i], b->len[i]);
+		// printf("pkt_addr: %d \n", pkt_addr);
+		xsk_ring_prod__tx_desc(&p->txq, pos + i)->addr = pkt_addr;
+		xsk_ring_prod__tx_desc(&p->txq, pos + i)->len = b->len[i];
+
+		if (transit_local_dest_queue != NULL)
+		{
+			int ret = mpmc_queue_push(transit_local_dest_queue, (void *) b->addr[i]);
+			if (!ret) 
+			{
+				printf("transit_local_dest_queue is full \n");
+			}
+		} else 
+		{
+			printf("transit_local_dest_queue is NULL in NIC TX \n");
+		}
+		// bcache_prod_tx(p->bc, pkt_addr); //Just for testing when send is commented. TOD:remove 
+		
+	}
+
+	xsk_ring_prod__submit(&p->txq, n_pkts);
+	if (xsk_ring_prod__needs_wakeup(&p->txq))
+			sendto(xsk_socket__fd(p->xsk), NULL, 0, MSG_DONTWAIT,
+			       NULL, 0);
+
+	p->n_pkts_tx += n_pkts;
 }
 
 static void *
@@ -694,6 +773,7 @@ thread_func_nic_tx(void *arg)
 	pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpu_cores);
 
 	struct mpmc_queue *local_dest_queue[NUM_OF_PER_DEST_QUEUES];
+	struct mpmc_queue *transit_local_dest_queue[NUM_OF_PER_DEST_QUEUES];
 
 	int assigned_queue_count = t->assigned_queue_count;
 
@@ -701,6 +781,7 @@ thread_func_nic_tx(void *arg)
 	for (w = 0; w < assigned_queue_count; w++)
 	{
 			local_dest_queue[w] = t->local_dest_queue_array[w];
+			transit_local_dest_queue[w] = t->transit_local_dest_queue_array[w];
 	}
 
 	//TODO: Fix this so that each nic port has its own burst_tx_collector
@@ -712,22 +793,37 @@ thread_func_nic_tx(void *arg)
 		for (k = 0; k < assigned_queue_count; k++)
 		{
             struct port *port_tx = t->ports_tx[k];
+
+			u32 n_pkts_in_cache = bcache_cons_tx_check(port_tx->bc, MAX_BURST_TX);
+			if (!n_pkts_in_cache) 
+            {
+				printf("There are no consumer tx slabs....\n");
+                continue;
+            }
+
             struct burst_tx_collector *btx_collector = &t->burst_tx_collector[0];
             int btx_index = 0;
             if (local_dest_queue[k] != NULL)
             {
-                while ((mpmc_queue_available(local_dest_queue[k])) && (btx_index < MAX_BURST_TX))
+                while ((mpmc_queue_available(local_dest_queue[k])) && (btx_index < n_pkts_in_cache))
                 {
                     void *obj;
                     if (mpmc_queue_pull(local_dest_queue[k], &obj) != NULL) {
                         struct burst_tx *btx = (struct burst_tx *)obj;
-                        // btx_collector->addr[btx_index] = bcache_cons_tx(port_tx->bc);
                         btx_collector->len[btx_index] = btx->len;
-                        memcpy(btx_collector->pkt[btx_index], btx->pkt, btx->len);
+						btx_collector->addr[btx_index] = btx->addr;
+                        // memcpy(btx_collector->pkt[btx_index], btx->pkt, btx->len);
+						// int ret = mpmc_queue_push(local_dest_queue[ret_val->ring_buf_index], (void *) btx);
+						// if (!ret) 
+						// {
+						// 	printf("local_dest_queue is full \n");
+						// }
                         free(obj);
 
                         btx_index++;
                         btx_collector->n_pkts = btx_index;
+
+						
                     }
                 }
             } else {
@@ -735,8 +831,8 @@ thread_func_nic_tx(void *arg)
             }
             if (btx_index)
             {
-                // printf("there are packets to tx \n");
-                port_tx_burst_collector(port_tx, btx_collector, 0, 0);
+                // printf("there are packets to NIC tx \n");
+                port_tx_burst_collector_nic(port_tx, btx_collector, 0, 0, transit_local_dest_queue[k]);
             } 
         
             btx_collector->n_pkts = 0;
@@ -744,6 +840,77 @@ thread_func_nic_tx(void *arg)
     }
     printf("return from thread_func_nic_tx \n");
 	return NULL;
+}
+
+static inline void
+port_tx_burst_collector_veth(struct port *p, struct burst_tx_collector *b, int free_btx, int wait_all, 
+				struct mpmc_queue *transit_veth_side_queue)
+{
+	struct bpool *bp = p->bc->bp;
+	u32 n_pkts, pos, i;
+	int status;
+
+	/* UMEM CQ. */
+	n_pkts = p->params.bp->umem_cfg.comp_size;
+
+	n_pkts = xsk_ring_cons__peek(&bp->umem_cq, n_pkts, &pos);
+
+    // printf("cq has packets: %d \n", n_pkts);
+
+
+	for (i = 0; i < n_pkts; i++)
+	{
+		u64 addr = *xsk_ring_cons__comp_addr(&bp->umem_cq, pos + i);
+
+		bcache_prod_tx(p->bc, addr);
+	}
+
+	xsk_ring_cons__release(&bp->umem_cq, n_pkts);
+
+	/* TXQ. */
+	n_pkts = b->n_pkts;
+
+	for (;;)
+	{
+		status = xsk_ring_prod__reserve(&p->txq, n_pkts, &pos);
+		if (status == n_pkts)
+		{
+            // printf("status == n_pkts \n");
+			break;
+		}
+
+		if (xsk_ring_prod__needs_wakeup(&p->txq))
+			sendto(xsk_socket__fd(p->xsk), NULL, 0, MSG_DONTWAIT,
+			       NULL, 0);
+
+		
+	}
+
+	for (i = 0; i < n_pkts; i++)
+	{
+        u64 pkt_addr =  bcache_cons_tx(p->bc);
+		u8 *pkt = xsk_umem__get_data(p->params.bp->addr, pkt_addr);
+		memcpy(pkt, b->addr[i], b->len[i]);
+		// pkt_addr = *b->addr[i];
+		// print_pkt_info(pkt, b->len[i]);
+		xsk_ring_prod__tx_desc(&p->txq, pos + i)->addr = pkt_addr;
+		xsk_ring_prod__tx_desc(&p->txq, pos + i)->len = b->len[i];
+
+		int ret = mpmc_queue_push(transit_veth_side_queue, (void *) b->addr[i]);
+		if (!ret) 
+		{
+			printf("transit_veth_side_queue is full \n");
+		}
+	}
+
+	// printf("veth tx done \n");
+
+	xsk_ring_prod__submit(&p->txq, n_pkts);
+	if (xsk_ring_prod__needs_wakeup(&p->txq))
+			sendto(xsk_socket__fd(p->xsk), NULL, 0, MSG_DONTWAIT,
+			       NULL, 0);
+
+	p->n_pkts_tx += n_pkts;
 }
 
 static void *
@@ -757,25 +924,27 @@ thread_func_veth_tx(void *arg)
 	CPU_SET(t->cpu_core_id, &cpu_cores);
 	pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpu_cores);
 
-    struct mpmc_queue *veth_side_queue = t->veth_side_queue_array[0];
+    struct mpmc_queue *veth_side_queue_single = t->veth_side_queue_array[0];
+	struct mpmc_queue *transit_veth_side_queue_single = t->transit_veth_side_queue_array[0];
 
     while (!t->quit) {
 		struct port *port_tx = t->ports_tx[0];
         struct burst_tx_collector *btx_collector = &t->burst_tx_collector[0];
         int btx_index = 0;
 
-        if (veth_side_queue != NULL)
+        if (veth_side_queue_single != NULL)
 		{
-            while ((mpmc_queue_available(veth_side_queue)) && (btx_index < MAX_BURST_TX))
+            while ((mpmc_queue_available(veth_side_queue_single)) && (btx_index < MAX_BURST_TX))
 			{
                 void *obj;
-                if (mpmc_queue_pull(veth_side_queue, &obj) != NULL) {
+                if (mpmc_queue_pull(veth_side_queue_single, &obj) != NULL) {
                     struct burst_tx *btx = (struct burst_tx *)obj;
                     // btx_collector->addr[btx_index] = bcache_cons_tx(port_tx->bc);
                     btx_collector->len[btx_index] = btx->len;
-                    memcpy(btx_collector->pkt[btx_index], btx->pkt, btx->len);
+					btx_collector->addr[btx_index] = btx->addr;
+                    // memcpy(btx_collector->pkt[btx_index], btx->pkt, btx->len);
                     free(obj);
-
+					// printf("veth tx \n");
                     btx_index++;
                     btx_collector->n_pkts = btx_index;
                 }
@@ -788,7 +957,7 @@ thread_func_veth_tx(void *arg)
         if (btx_index)
         {
             // printf("There are packets to goto veth tx \n");
-            port_tx_burst_collector(port_tx, btx_collector, 0, 0);
+            port_tx_burst_collector_veth(port_tx, btx_collector, 0, 0, transit_veth_side_queue_single);
         } 
     
         btx_collector->n_pkts = 0;

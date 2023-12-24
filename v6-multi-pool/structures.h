@@ -250,14 +250,14 @@ struct burst_rx {
 struct burst_tx_collector {
 	u64 addr[MAX_BURST_TX];
 	u32 len[MAX_BURST_TX];
-	u8 pkt[MAX_BURST_TX][XSK_UMEM__DEFAULT_FRAME_SIZE];
+	// u8 pkt[MAX_BURST_TX][XSK_UMEM__DEFAULT_FRAME_SIZE];
 	u32 n_pkts;
 };
 
 struct burst_tx {
 	u64 addr;
 	u32 len;
-	u8 pkt[XSK_UMEM__DEFAULT_FRAME_SIZE];
+	// u8 pkt[XSK_UMEM__DEFAULT_FRAME_SIZE];
 	u32 n_pkts;
 };
 
