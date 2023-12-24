@@ -75,58 +75,6 @@ clang --version
 ```
 
 ```
-ns11
-vethin12
-vethout22
-
-
-ns12
-vethin13
-vethout23
-ns13
-vethin14
-vethout24
-
-
-ns14
-vethin15
-vethout25
-
-
-
-ns15
-vethin16
-vethout26
-ns16
-vethin17
-vethout27
-ns17
-vethin18
-vethout28
-ns18
-vethin19
-vethout29
-ns19
-vethin20
-vethout30
-ns20
-vethin21
-vethout31
-ns21
-vethin22
-vethout32
-ns22
-vethin23
-vethout33
-ns23
-vethin24
-vethout34
-ns24
-vethin25
-vethout35
-```
-
-```
 sudo ip netns del ns
 ip netns list
 sudo ip netns exec ns11 bash
@@ -203,4 +151,35 @@ mqnic-fw is in the utils subdir
 
 cd /home/dathapathu/emulator/github_code/corundum/utils
 sudo ./mqnic-fw -d /dev/mqnic0 -t
+```
+
+
+### Corundum setup
+```
+cd /home/dathapathu/emulator/github_code/corundum/modules/mqnic
+make -j $(nproc) all
+cp mqnic.ko /tmp
+sudo insmod /tmp/mqnic.ko
+```
+
+```
+sudo ip addr add 10.20.1.1/16 dev ens2np0
+sudo ip addr add 10.20.2.1/16 dev ens2np0
+sudo ip link set dev ens2np0 up
+sudo ip link set ens2np0 mtu 3490
+```
+
+```
+sudo ./unique_ip_for_ns.sh
+python3 setup_mac.py
+./get_veth_info.sh -n 7
+
+python3 setup_all_to_all_arp.py NSyeti-00.sysnet.ucsd.edu.csv //on node 01
+python3 setup_all_to_all_arp.py NSyeti-01.sysnet.ucsd.edu.csv //on node 00
+```
+
+```
+sudo ethtool -L ens2np0 rx 1
+sudo ethtool -L ens2np0 tx 1
+sudo set_irq_affinity.sh ens2np0
 ```

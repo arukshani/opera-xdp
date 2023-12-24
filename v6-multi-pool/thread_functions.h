@@ -355,25 +355,16 @@ port_rx_burst(struct port *p, struct mpmc_queue *local_dest_queue[NUM_OF_PER_DES
         if (ret_val->new_len != 0) 
         {
             if (local_dest_queue[ret_val->ring_buf_index] != NULL)
-            {
-                // printf("there is a loc dest queue: %d \n", ret_val->ring_buf_index);
-                
-                // btx->pkt = pkt;
-                u8 *updated_pkt = xsk_umem__get_data(p->params.bp->addr, addr);
-                // memcpy(btx->pkt, updated_pkt, ret_val->new_len);
-                // print_pkt_info(updated_pkt, ret_val->new_len);
-                // printf("copy the actual packet \n");
-				
+            {	
 				if (transit_local_dest_queue[ret_val->ring_buf_index] != NULL)
             	{
 					void *obj;
 					if (mpmc_queue_pull(transit_local_dest_queue[ret_val->ring_buf_index], &obj) != NULL) {
+						u8 *updated_pkt = xsk_umem__get_data(p->params.bp->addr, addr);
 						struct burst_tx *btx = calloc(1, sizeof(struct burst_tx));
 						u64 transit_addr = (u64 *)obj;
-						// printf("pull transit_addr: %d \n", transit_addr);
 						transit_addr = updated_pkt;
 						// memcpy(transit_addr, updated_pkt, ret_val->new_len);
-						// *transit_addr = prev;
 						btx->addr = transit_addr;
 						btx->len = ret_val->new_len;
 						
@@ -390,7 +381,6 @@ port_rx_burst(struct port *p, struct mpmc_queue *local_dest_queue[NUM_OF_PER_DES
 				}
             
                 bcache_prod(p->bc, addr_rx);
-                // printf("release the packet \n");
             }
             else
             {
@@ -524,24 +514,32 @@ port_nic_rx_burst(struct port *p, struct mpmc_queue *non_local_dest_queue[NUM_OF
             {
                 if (veth_side_queue[ret_val->which_veth] != NULL)
 				{
-                    struct burst_tx *btx = calloc(1, sizeof(struct burst_tx));
-                    u8 *updated_pkt = xsk_umem__get_data(p->params.bp->addr, addr);
-                    void *obj;
-					if (mpmc_queue_pull(transit_veth_side_queue[ret_val->which_veth], &obj) != NULL) {
-						u64 transit_addr = (u64 *)obj;
-						// printf("pull transit_addr: %d \n", transit_addr);
-						transit_addr = updated_pkt;
-						// memcpy(transit_addr, updated_pkt, ret_val->new_len);
-						// *transit_addr = prev;
-						btx->addr = transit_addr;
+					if (transit_veth_side_queue[ret_val->which_veth] != NULL)
+            		{
+						void *obj;
+						if (mpmc_queue_pull(transit_veth_side_queue[ret_val->which_veth], &obj) != NULL) {
+							struct burst_tx *btx = calloc(1, sizeof(struct burst_tx));
+							u8 *updated_pkt = xsk_umem__get_data(p->params.bp->addr, addr);
+							u64 transit_addr = (u64 *)obj;
+							transit_addr = updated_pkt;
+							// memcpy(transit_addr, updated_pkt, ret_val->new_len);
+							btx->addr = transit_addr;
+							btx->len = ret_val->new_len;
+
+							int ret = mpmc_queue_push(veth_side_queue[ret_val->which_veth], (void *) btx);
+							if (!ret) 
+							{
+								printf("veth_side_queue is full \n");
+							}
+						}
+						else {
+							printf("transit_veth_side_queue returns NULL obj \n");
+						}
 					}
-                    btx->len = ret_val->new_len;
-                    // print_pkt_info(updated_pkt, ret_val->new_len);
-                    int ret = mpmc_queue_push(veth_side_queue[ret_val->which_veth], (void *) btx);
-                    if (!ret) 
-                    {
-                        printf("veth_side_queue is full \n");
-                    }
+					else
+					{
+						printf("transit_veth_side_queue is NULL \n");
+					}
                     bcache_prod(p->bc, addr_rx);
                 }
                 else
@@ -891,15 +889,20 @@ port_tx_burst_collector_veth(struct port *p, struct burst_tx_collector *b, int f
         u64 pkt_addr =  bcache_cons_tx(p->bc);
 		u8 *pkt = xsk_umem__get_data(p->params.bp->addr, pkt_addr);
 		memcpy(pkt, b->addr[i], b->len[i]);
-		// pkt_addr = *b->addr[i];
 		// print_pkt_info(pkt, b->len[i]);
 		xsk_ring_prod__tx_desc(&p->txq, pos + i)->addr = pkt_addr;
 		xsk_ring_prod__tx_desc(&p->txq, pos + i)->len = b->len[i];
 
-		int ret = mpmc_queue_push(transit_veth_side_queue, (void *) b->addr[i]);
-		if (!ret) 
+		if (transit_veth_side_queue != NULL)
 		{
-			printf("transit_veth_side_queue is full \n");
+			int ret = mpmc_queue_push(transit_veth_side_queue, (void *) b->addr[i]);
+			if (!ret) 
+			{
+				printf("transit_veth_side_queue is full \n");
+			}
+		}
+		else{
+			printf("transit_veth_side_queue is NULL \n");
 		}
 	}
 
@@ -929,12 +932,20 @@ thread_func_veth_tx(void *arg)
 
     while (!t->quit) {
 		struct port *port_tx = t->ports_tx[0];
+
+		u32 n_pkts_in_cache = bcache_cons_tx_check(port_tx->bc, MAX_BURST_TX);
+		if (!n_pkts_in_cache) 
+		{
+			printf("There are no consumer tx slabs....\n");
+			continue;
+		}
+
         struct burst_tx_collector *btx_collector = &t->burst_tx_collector[0];
         int btx_index = 0;
 
         if (veth_side_queue_single != NULL)
 		{
-            while ((mpmc_queue_available(veth_side_queue_single)) && (btx_index < MAX_BURST_TX))
+            while ((mpmc_queue_available(veth_side_queue_single)) && (btx_index < n_pkts_in_cache))
 			{
                 void *obj;
                 if (mpmc_queue_pull(veth_side_queue_single, &obj) != NULL) {
