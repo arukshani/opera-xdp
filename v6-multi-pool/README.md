@@ -49,11 +49,38 @@ sudo ./uq_tcp_ns_server.sh -n 0 -i ens2np0
 sudo ./uq_mp_server.sh -n 5
 sudo ./uq_mp_client.sh -n 5
 
-sudo taskset --cpu-list 32 ./sw_corundum_main 10.20.1.1 120 1 1 config/node2.csv
-sudo taskset --cpu-list 32 ./sw_corundum_main 10.20.2.1 120 1 1 config/node1.csv
+sudo taskset --cpu-list 30 ./sw_corundum_main 10.20.1.1 120 1 1 config/node2.csv
+sudo taskset --cpu-list 30 ./sw_corundum_main 10.20.2.1 120 1 1 config/node1.csv
 
 sudo ./uq_mp_server.sh -n 0
 sudo ./uq_mp_client.sh -n 0
 
 sudo ip netns exec ns1 bash
+```
+
+```
+IRQ Affinity
+https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/6/html/performance_tuning_guide/s-cpu-irq
+
+ echo 0000,00000000,00000001 > sudo tee /proc/irq/196/smp_affinity
+ echo 0000,00000000,00000004 | sudo tee /proc/irq/197/smp_affinity
+ echo 0000,00000000,00000008 | sudo tee /proc/irq/198/smp_affinity
+ echo 0000,00000000,00000010 | sudo tee /proc/irq/199/smp_affinity
+ echo 0000,00000000,00000020 | sudo tee /proc/irq/200/smp_affinity
+ echo 0000,00000000,00000040 | sudo tee /proc/irq/201/smp_affinity
+
+cat /proc/irq/196/smp_affinity (0000,00000000,00000001)
+
+
+```
+
+```
+sudo ip netns exec ns1 ethtool -K vethin2 tx on
+sudo ip netns exec ns2 ethtool -K vethin3 tx on
+sudo ip netns exec ns3 ethtool -K vethin4 tx on
+sudo ip netns exec ns4 ethtool -K vethin5 tx on
+sudo ip netns exec ns5 ethtool -K vethin6 tx on
+sudo ip netns exec ns6 ethtool -K vethin7 tx on
+sudo ip netns exec ns7 ethtool -K vethin8 tx on
+sudo ip netns exec ns8 ethtool -K vethin9 tx on
 ```

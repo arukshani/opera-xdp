@@ -7,6 +7,7 @@
 #define XDPSOCK_H_
 
 #define MAX_SOCKS 16
+#define MAX_SOCKS_VETH 1
 
 #define SOCKET_NAME "sock_cal_bpf_fd"
 #define MAX_NUM_OF_CLIENTS 10

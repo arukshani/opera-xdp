@@ -51,7 +51,7 @@ typedef __u8  u8;
 #endif
 
 #ifndef START_THREAD_CORE_ID
-#define START_THREAD_CORE_ID 34
+#define START_THREAD_CORE_ID 32
 #endif
 
 #ifndef MAX_PORTS
@@ -170,7 +170,7 @@ struct bcache {
  */
 static const struct bpool_params bpool_params_default = {
 	// .n_buffers = 64 * 1024,
-	.n_buffers = 4096 * 10,
+	.n_buffers = 4096 * 8,
 	.buffer_size = XSK_UMEM__DEFAULT_FRAME_SIZE,
 	.mmap_flags = 0,
 

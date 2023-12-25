@@ -74,6 +74,7 @@
 #include "memory.h"
 #include "plumbing.h"
 #include "mempool.h"
+#include "calculate_checksum.h"
 #include "thread_functions.h"
 
 static int quit;
@@ -780,12 +781,20 @@ int main(int argc, char **argv)
 		if (ret)
 			printf("Failed to destroy queue: %d", ret);
 
+		ret = mpmc_queue_destroy(transit_veth_side_queue[w]);
+		if (ret)
+			printf("Failed to destroy queue: %d", ret);
+
 		transit_bpool_free(transit_bp_veth[w]);
 	}
 
 	for (w = 0; w < NUM_OF_PER_DEST_QUEUES; w++)
 	{
 		int ret = mpmc_queue_destroy(local_per_dest_queue[w]);
+		if (ret)
+			printf("Failed to destroy queue: %d", ret);
+
+		ret = mpmc_queue_destroy(transit_local_per_dest_queue[w]);
 		if (ret)
 			printf("Failed to destroy queue: %d", ret);
 
