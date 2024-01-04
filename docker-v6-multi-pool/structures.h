@@ -47,7 +47,7 @@ typedef __u8  u8;
 #endif
 
 #ifndef OUTER_VETH_PREFIX
-#define OUTER_VETH_PREFIX "vethout"
+#define OUTER_VETH_PREFIX "dcout"
 #endif
 
 #ifndef START_THREAD_CORE_ID
@@ -91,6 +91,12 @@ static struct xdp_program *xdp_prog[26];
  * to share the same UMEM area, which is used as the buffer pool memory.
  */
 //=======================Mempool related===========================
+struct transit_bpool {
+	void *addr;
+	u64 *buffers;
+	u64 n_buffers;
+};
+
 struct bpool_params {
 	u32 n_buffers;
 	u32 buffer_size;
@@ -115,8 +121,8 @@ struct port {
 
 	struct xsk_ring_cons rxq;
 	struct xsk_ring_prod txq;
-	struct xsk_ring_prod umem_fq;
-	struct xsk_ring_cons umem_cq;
+	// struct xsk_ring_prod umem_fq;
+	// struct xsk_ring_cons umem_cq;
 	struct xsk_socket *xsk;
 	int umem_fq_initialized;
 
@@ -130,16 +136,12 @@ struct bpool {
 	void *addr;
 
 	u64 **slabs;
-	// u64 **slabs_reserved;
 	u64 *buffers;
-	// u64 *buffers_reserved;
 
 	u64 n_slabs;
-	// u64 n_slabs_reserved;
 	u64 n_buffers;
 
 	u64 n_slabs_available;
-	// u64 n_slabs_reserved_available;
 
 	struct xsk_umem_config umem_cfg;
 	struct xsk_ring_prod umem_fq;
@@ -150,11 +152,17 @@ struct bpool {
 struct bcache {
 	struct bpool *bp;
 
-	u64 *slab_cons;
-	u64 *slab_prod;
+	u64 *slab_cons; //rx
+	u64 *slab_prod; //rx
 
-	u64 n_buffers_cons;
-	u64 n_buffers_prod;
+	u64 *slab_cons_tx;
+	u64 *slab_prod_tx;
+
+	u64 n_buffers_cons; //rx
+	u64 n_buffers_prod; //rx
+
+	u64 n_buffers_cons_tx;
+	u64 n_buffers_prod_tx;
 };
 
 /*
@@ -162,7 +170,7 @@ struct bcache {
  */
 static const struct bpool_params bpool_params_default = {
 	// .n_buffers = 64 * 1024,
-	.n_buffers = 128 * 1024 * 4,
+	.n_buffers = 4096 * 8,
 	.buffer_size = XSK_UMEM__DEFAULT_FRAME_SIZE,
 	.mmap_flags = 0,
 
@@ -194,9 +202,12 @@ static const struct port_params port_params_default = {
 	// .ns_index = 0,
 };
 
-static struct bpool_params bpool_params;
-static struct xsk_umem_config umem_cfg;
-static struct bpool *bp;
+// static struct bpool_params bpool_params;
+// static struct xsk_umem_config umem_cfg;
+// static struct bpool *bp;
+static struct bpool *bp[MAX_PORTS];
+static struct xsk_umem_config umem_cfg[MAX_PORTS];
+static struct bpool_params bpool_params[MAX_PORTS];
 
 static struct port_params port_params[MAX_PORTS];
 static struct port *ports[MAX_PORTS];
@@ -223,18 +234,33 @@ struct burst_rx {
 	u32 len[MAX_BURST_RX];
 };
 
-struct burst_tx {
-	u64 addr[1];
-	u32 len[1];
-	// u32 ns_index;
-	u32 n_pkts;
-};
+// struct burst_tx {
+// 	u64 addr[1];
+// 	u32 len[1];
+// 	// u32 ns_index;
+// 	u32 n_pkts;
+// };
+
+// struct burst_tx_collector {
+// 	u64 addr[MAX_BURST_TX];
+// 	u32 len[MAX_BURST_TX];
+// 	u32 n_pkts;
+// };
 
 struct burst_tx_collector {
 	u64 addr[MAX_BURST_TX];
 	u32 len[MAX_BURST_TX];
+	// u8 pkt[MAX_BURST_TX][XSK_UMEM__DEFAULT_FRAME_SIZE];
 	u32 n_pkts;
 };
+
+struct burst_tx {
+	u64 addr;
+	u32 len;
+	// u8 pkt[XSK_UMEM__DEFAULT_FRAME_SIZE];
+	u32 n_pkts;
+};
+
 
 static int n_ports;
 static int n_nic_ports;
@@ -260,6 +286,8 @@ struct thread_data {
 	struct mpmc_queue *non_local_dest_queue_array[NUM_OF_PER_DEST_QUEUES];
 	struct mpmc_queue *veth_side_queue_array[13];
 	int assigned_queue_count;
+	struct mpmc_queue *transit_local_dest_queue_array[NUM_OF_PER_DEST_QUEUES];
+	struct mpmc_queue *transit_veth_side_queue_array[13];
 };
 
 static pthread_t threads[MAX_THREADS];
@@ -271,6 +299,11 @@ static int n_threads;
 struct mpmc_queue *veth_side_queue[13];
 struct mpmc_queue *local_per_dest_queue[NUM_OF_PER_DEST_QUEUES];
 struct mpmc_queue *non_local_per_dest_queue[NUM_OF_PER_DEST_QUEUES];
+
+struct mpmc_queue *transit_veth_side_queue[13];
+struct mpmc_queue *transit_local_per_dest_queue[NUM_OF_PER_DEST_QUEUES];
+static struct transit_bpool *transit_bp_veth[13];
+static struct transit_bpool *transit_bp_local_dest[NUM_OF_PER_DEST_QUEUES];
 
 __u32 t1ms;
 
@@ -300,7 +333,7 @@ static u64 n_pkts_tx[MAX_PORTS];
 static u64 n_cleanup_tx[MAX_PORTS];
 
 // char out_veth_arr[8][10] = {"crout12", "crout13", "crout14", "crout15", "crout16", "crout17", "crout18", "crout19"};
-char out_veth_arr[8][10] = {"vethout12", "vethout13", "vethout14", "vethout15", "vethout16", "vethout17", "vethout18", "vethout19"};
+char out_veth_arr[8][10] = {"dcout1", "dcout2", "dcout3", "dcout4", "dcout5", "dcout6", "dcout7", "vethout19"};
 
 static const struct sched_map {
 	const char *name;

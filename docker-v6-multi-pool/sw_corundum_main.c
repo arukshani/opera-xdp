@@ -75,7 +75,7 @@
 #include "plumbing.h"
 #include "mempool.h"
 #include "calculate_checksum.h"
-#include "thread_functions_1.h"
+#include "thread_functions.h"
 
 static int quit;
 
@@ -288,16 +288,23 @@ int main(int argc, char **argv)
 	// printf(" hello %ld", sizeof(u64 *));
 	int i,y,x,z;
 
+	n_ports = num_of_nses + n_nic_ports; // + for NIC queues
+
 	/* Parse args. */
-	memcpy(&bpool_params, &bpool_params_default,
+	// memcpy(&bpool_params, &bpool_params_default,
+	// 	   sizeof(struct bpool_params));
+	// memcpy(&umem_cfg, &umem_cfg_default,
+	// 	   sizeof(struct xsk_umem_config));
+	for (i = 0; i < n_ports; i++)
+	{
+		memcpy(&bpool_params[i], &bpool_params_default,
 		   sizeof(struct bpool_params));
-	memcpy(&umem_cfg, &umem_cfg_default,
+        memcpy(&umem_cfg[i], &umem_cfg_default,
 		   sizeof(struct xsk_umem_config));
-	for (i = 0; i < MAX_PORTS; i++)
 		memcpy(&port_params[i], &port_params_default,
 			   sizeof(struct port_params));
-
-	n_ports = num_of_nses + n_nic_ports; // + for NIC queues
+	}
+		
 	load_xdp_program();
 
     for (y = 0; y < n_nic_ports; y++)
@@ -332,21 +339,23 @@ int main(int argc, char **argv)
 	
 
 	/* Buffer pool initialization. */
-	bp = bpool_init(&bpool_params, &umem_cfg);
-	if (!bp)
-	{
-		printf("Buffer pool initialization failed.\n");
-		return -1;
-	}
-	printf("Buffer pool created successfully.\n");
-	printf("================================\n");
+	// bp = bpool_init(&bpool_params, &umem_cfg);
+	// if (!bp)
+	// {
+	// 	printf("Buffer pool initialization failed.\n");
+	// 	return -1;
+	// }
+	// printf("Buffer pool created successfully.\n");
+	// printf("================================\n");
 
 	/* Ports initialization. */
 	for (i = 0; i < n_ports; i++)
-		port_params[i].bp = bp;
-
-	for (i = 0; i < n_ports; i++)
 	{
+		printf("==============Initialize buffer pool for port: %d ================= \n", i);
+        bp[i] = bpool_init(&bpool_params[i], &umem_cfg[i]);
+        port_params[i].bp = bp[i];
+		// port_params[i].bp = bp;
+
 		ports[i] = port_init(&port_params[i]);
 		if (!ports[i])
 		{
@@ -355,6 +364,18 @@ int main(int argc, char **argv)
 		}
 		print_port(i);
 	}
+		
+
+	// for (i = 0; i < n_ports; i++)
+	// {
+	// 	ports[i] = port_init(&port_params[i]);
+	// 	if (!ports[i])
+	// 	{
+	// 		printf("Port %d initialization failed.\n", i);
+	// 		return -1;
+	// 	}
+	// 	print_port(i);
+	// }
 
 	enter_xsks_into_map_for_nic();
 
@@ -422,12 +443,37 @@ int main(int argc, char **argv)
 	struct mpmc_queue return_path_veth_queue[13];
 	struct mpmc_queue local_dest_queue[NUM_OF_PER_DEST_QUEUES];
 	struct mpmc_queue non_local_dest_queue[NUM_OF_PER_DEST_QUEUES];
+
+	struct mpmc_queue trnasit_veth_queue[13];
+	struct mpmc_queue transit_dest_queue[NUM_OF_PER_DEST_QUEUES];
 	
 	// local queues
 	for (i = 0; i < NUM_OF_PER_DEST_QUEUES; i++)
 	{
 		mpmc_queue_init(&local_dest_queue[i], MAX_BURST_TX_OBJS, &memtype_heap);
 		local_per_dest_queue[i] = &local_dest_queue[i];
+
+		mpmc_queue_init(&transit_dest_queue[i], MAX_BURST_TX_OBJS, &memtype_heap);
+		transit_local_per_dest_queue[i] = &transit_dest_queue[i];
+
+		transit_bp_local_dest[i] = transit_bpool_init();
+
+		int j;
+		for (j = 0; j < MAX_BURST_TX_OBJS; j++)
+		// for (j = 0; j < 10; j++)
+		{
+			u64 transit_addr = get_transit_buffer_addr(transit_bp_local_dest[i]);
+			// if (i == 0)
+			// {
+			// 	printf("push transit_addr: %d \n", transit_addr);
+			// }
+			
+			int ret = mpmc_queue_push(transit_local_per_dest_queue[i], (void *)transit_addr);
+			if (!ret) 
+			{
+				printf("veth_side_queue is full \n");
+			}
+		}
 	}
 	
 
@@ -445,6 +491,21 @@ int main(int argc, char **argv)
 	{
 		mpmc_queue_init(&return_path_veth_queue[w], MAX_BURST_TX_OBJS, &memtype_heap);
 		veth_side_queue[w] = &return_path_veth_queue[w];
+
+		mpmc_queue_init(&trnasit_veth_queue[w], MAX_BURST_TX_OBJS, &memtype_heap);
+		transit_veth_side_queue[w] = &trnasit_veth_queue[w];
+
+		transit_bp_veth[w] = transit_bpool_init();
+
+		int j;
+		for (j = 0; j < MAX_BURST_TX_OBJS; j++)
+		{
+			int ret = mpmc_queue_push(transit_veth_side_queue[w], (void *)get_transit_buffer_addr(transit_bp_veth[w]));
+			if (!ret) 
+			{
+				printf("veth_side_queue is full \n");
+			}
+		}
 	}
 
 	/* NIC TX Threads. */
@@ -465,6 +526,7 @@ int main(int argc, char **argv)
 		{
 			t->ports_tx[k] = ports[queue_index];
 			t->local_dest_queue_array[k] = local_per_dest_queue[queue_index];
+			t->transit_local_dest_queue_array[k] = transit_local_per_dest_queue[queue_index];
 			// printf("NIC TX: port & queue %d : thread %d: \n", queue_index, i);
 			queue_index++;
 		}
@@ -502,6 +564,7 @@ int main(int argc, char **argv)
         for (g = 0; g < veth_port_count; g++)
         {
             t->veth_side_queue_array[g] = veth_side_queue[g];
+			t->transit_veth_side_queue_array[g] = transit_veth_side_queue[g];
         }
 
         t->n_ports_rx = 1;
@@ -522,6 +585,7 @@ int main(int argc, char **argv)
 		for (v=0; v < NUM_OF_PER_DEST_QUEUES; v++) 
 		{
 			t->local_dest_queue_array[v] = local_per_dest_queue[v];
+			t->transit_local_dest_queue_array[v] = transit_local_per_dest_queue[v];
 		}
 		t->n_ports_rx = 1;
 	}
@@ -535,10 +599,12 @@ int main(int argc, char **argv)
 	for (i = veth_tx_threads_start_index; i < n_threads; i++)
 	{
 		struct thread_data *t = &thread_data[i];
+		// printf("one veth side queue for veth tx~~~~~~~~~~~~~~~~~~~~~~\n");
 
 		t->ports_tx[0] = ports[start_index_for_veth_ports]; //veth
 		start_index_for_veth_ports = start_index_for_veth_ports + 1;
 		t->veth_side_queue_array[0] = veth_side_queue[m];
+		t->transit_veth_side_queue_array[0] = transit_veth_side_queue[m];
 		m = m + 1;
 		t->n_ports_rx = 1;
 	}
@@ -563,7 +629,7 @@ int main(int argc, char **argv)
 		int status;
 		status = pthread_create(&threads[i],
 									NULL,
-									thread_func_veth_to_nic_tx,
+									thread_func_nic_tx,
 									&thread_data[i]);
 		printf("Create NIC TX thread %d: %d \n", i, thread_data[i].cpu_core_id);
 	}
@@ -576,7 +642,7 @@ int main(int argc, char **argv)
 		int status;
 		status = pthread_create(&threads[i],
 									NULL,
-									thread_func_nic,
+									thread_func_nic_rx,
 									&thread_data[i]);
 		printf("Create NIC RX thread %d: %d \n", i, thread_data[i].cpu_core_id);
 	}
@@ -587,7 +653,7 @@ int main(int argc, char **argv)
 		int status;
 		status = pthread_create(&threads[i],
 								NULL,
-								thread_func_veth,
+								thread_func_veth_rx,
 								&thread_data[i]);
 		printf("Create VETH RX thread %d: %d \n", i, thread_data[i].cpu_core_id);
 
@@ -599,7 +665,7 @@ int main(int argc, char **argv)
 		int status;
 		status = pthread_create(&threads[i],
 								NULL,
-								thread_func_nic_to_veth_tx,
+								thread_func_veth_tx,
 								&thread_data[i]);
 		printf("Create VETH TX thread %d: %d \n", i, thread_data[i].cpu_core_id);
 	}
@@ -692,9 +758,13 @@ int main(int argc, char **argv)
 	printf("After thread join \n");
 
 	for (i = 0; i < n_ports; i++)
+	{
 		port_free(ports[i]);
+		bpool_free(bp[i]);
+	}
+		
 
-	bpool_free(bp);
+	// bpool_free(bp);
 
 	remove_xdp_program_nic();
 	remove_xdp_program_veth();
@@ -710,6 +780,12 @@ int main(int argc, char **argv)
 		int ret = mpmc_queue_destroy(veth_side_queue[w]);
 		if (ret)
 			printf("Failed to destroy queue: %d", ret);
+
+		ret = mpmc_queue_destroy(transit_veth_side_queue[w]);
+		if (ret)
+			printf("Failed to destroy queue: %d", ret);
+
+		transit_bpool_free(transit_bp_veth[w]);
 	}
 
 	for (w = 0; w < NUM_OF_PER_DEST_QUEUES; w++)
@@ -718,9 +794,15 @@ int main(int argc, char **argv)
 		if (ret)
 			printf("Failed to destroy queue: %d", ret);
 
+		ret = mpmc_queue_destroy(transit_local_per_dest_queue[w]);
+		if (ret)
+			printf("Failed to destroy queue: %d", ret);
+
 		ret = mpmc_queue_destroy(non_local_per_dest_queue[w]);
 		if (ret)
 			printf("Failed to destroy queue: %d", ret);
+
+		transit_bpool_free(transit_bp_local_dest[w]);
 	}
 
 	return 0;

@@ -31,7 +31,7 @@ cpu_core_id=$(echo "62" | bc)
 port=$(echo "5100" | bc);
 output=$(
 for i in $(seq 0 $num_namespaces); do
-    cpu_core_id=$(echo "$cpu_core_id+2" | bc)
+    # cpu_core_id=$(echo "$cpu_core_id+2" | bc)
     # port=$(echo "5100+$i" | bc);
     numactl -N $nic_local_numa_node ip netns exec ${myArray[$i]} iperf3 -c ${serverList[$i]} -p $port -t 30 -f g &
     #  sudo taskset --cpu-list $cpu_core_id ip netns exec ${myArray[$i]} iperf3 -c ${serverList[$i]} -p $port -t 30 -f g &

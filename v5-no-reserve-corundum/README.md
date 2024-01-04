@@ -40,12 +40,16 @@ cd /home/dathapathu/emulator/github_code/opera-xdp/opera-test-tools
 sudo taskset --cpu-list 32 ./sw_corundum_1 10.20.1.1 120 3 3
 sudo taskset --cpu-list 32 ./sw_corundum_1 10.20.2.1 120 3 3
 
-sudo taskset --cpu-list 32 ./sw_corundum_1 10.20.1.1 120 6 6 config/node2.csv
-sudo taskset --cpu-list 32 ./sw_corundum_1 10.20.2.1 120 6 6 config/node1.csv
+sudo taskset --cpu-list 22 ./sw_corundum_1 10.20.1.1 120 1 1 config/node2.csv
+sudo taskset --cpu-list 22 ./sw_corundum_1 10.20.2.1 120 1 1 config/node1.csv
 
 sudo ./uq_tcp_ns_client.sh -n 0 -i ens2np0
 sudo ./uq_tcp_ns_server.sh -n 0 -i ens2np0
 
-sudo ./uq_mp_server.sh -n 5
-sudo ./uq_mp_client.sh -n 5
+sudo ./uq_mp_server.sh -n 0
+sudo ./uq_mp_client.sh -n 0
+
+sudo ethtool -L ens2np0 rx 1
+sudo ethtool -L ens2np0 tx 1
+sudo set_irq_affinity.sh ens2np0
 ```

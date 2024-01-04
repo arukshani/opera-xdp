@@ -254,8 +254,6 @@ static void process_rx_packet(void *data, struct port_params *params, uint32_t l
 		struct iphdr *inner_ip_hdr_tmp = (struct iphdr *)(data +
 														  sizeof(struct ethhdr));
 
-		compute_ip_checksum(inner_ip_hdr_tmp);
-
 		//new
 		struct udphdr *inner_udp_hdr;
 		struct tcphdr *inner_tcp_hdr;
@@ -263,11 +261,6 @@ static void process_rx_packet(void *data, struct port_params *params, uint32_t l
 
 		if (inner_ip_hdr_tmp->protocol == IPPROTO_UDP) 
 		{
-			unsigned short *ipPayload = (data +
-					    sizeof(struct ethhdr) +
-					    sizeof(struct iphdr));
-			compute_udp_checksum(inner_ip_hdr_tmp, ipPayload);
-
 			inner_udp_hdr = (struct udphdr *)(data +
 					    sizeof(struct ethhdr) +
 					    sizeof(struct iphdr));
@@ -275,10 +268,6 @@ static void process_rx_packet(void *data, struct port_params *params, uint32_t l
 
 		} else if (inner_ip_hdr_tmp->protocol == IPPROTO_TCP) 
 		{
-			unsigned short *ipPayload = (data +
-					    sizeof(struct ethhdr) +
-					    sizeof(struct iphdr));
-			compute_tcp_checksum(inner_ip_hdr_tmp, ipPayload);
 			inner_tcp_hdr = (struct tcphdr *)(data +
 					    sizeof(struct ethhdr) +
 					    sizeof(struct iphdr));

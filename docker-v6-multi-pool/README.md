@@ -49,16 +49,11 @@ sudo ./uq_tcp_ns_server.sh -n 0 -i ens2np0
 sudo ./uq_mp_server.sh -n 5
 sudo ./uq_mp_client.sh -n 5
 
-sudo taskset --cpu-list 22 ./sw_corundum_main 10.20.1.1 120 1 1 config/node2.csv
-sudo taskset --cpu-list 22 ./sw_corundum_main 10.20.2.1 120 1 1 config/node1.csv
+sudo taskset --cpu-list 30 ./sw_corundum_main 10.20.1.1 120 1 1 config/node2.csv
+sudo taskset --cpu-list 30 ./sw_corundum_main 10.20.2.1 120 1 1 config/node1.csv
 
 sudo ./uq_mp_server.sh -n 0
 sudo ./uq_mp_client.sh -n 0
-
-sudo ethtool -L ens2np0 rx 1
-sudo ethtool -L ens2np0 tx 1
-
-sudo set_irq_affinity.sh ens2np0
 
 sudo ip netns exec ns1 bash
 ```
@@ -158,12 +153,140 @@ docker network rm operanetwork
 
 ```
 docker network create --subnet=172.20.0.0/16 operanetwork
-docker run --net operanetwork --ip 172.20.1.2 -it ubuntu bash
-docker run --net operanetwork --ip 172.20.2.2 -it ubuntu bash
+docker run --net operanetwork --ip 172.20.1.2 --cap-add=NET_ADMIN -it ubuntu bash
+docker run --net operanetwork --ip 172.20.2.2 --cap-add=NET_ADMIN -it ubuntu bash
+
+docker run --net=host --cap-add=NET_ADMIN -it ubuntu bash
 
 apt-get update
 apt-get install -y net-tools
 apt install iproute2 -y
 apt-get install -y iputils-ping
-apt-get install iperf3
+
+ip link set eth0 mtu 3400
+```
+
+```
+MTU
+cat /lib/systemd/system/docker.service
+sudo vi /lib/systemd/system/docker.service
+change line "ExecStart=/usr/bin/dockerd --mtu 3400 -H fd:// --containerd=/run/containerd/containerd.sock"
+
+sudo systemctl daemon-reload
+sudo service docker restart
+
+ip link set br-80112bbfc3cb mtu 3400
+
+//sudo docker run --cap-add=NET_ADMIN ubuntu
+
+```
+
+```
+docker run --cap-add=NET_ADMIN --name container_x ubuntu bash
+sudo ip link add c_x_in_eth0 type veth peer name c_x_out_eth0
+docker inspect --format '{{.State.Pid}}' container_x
+ip link set netns  dev c_x_in_eth0
+```
+
+```
+docker run --net=none alpine ip addr
+docker run --net=none ubuntu bash
+```
+
+```
+docker run -it --name container_x --network none --privileged alpine sh
+sudo ip link add c_x_eth0 type veth peer name c_y_eth0
+
+sudo docker inspect --format '{{.State.Pid}}' container_x
+
+159881
+sudo ip link set netns 159881 dev c_x_eth0
+docker exec -it container_x sh
+ip link set c_x_eth0 up
+ip addr add 10.20.1.2/16 dev c_x_eth0
+ip link set c_x_eth0 mtu 3400
+
+sudo ip link set dev c_y_eth0 up
+sudo ip link set c_y_eth0 mtu 3400
+```
+
+```
+docker run -it --name c1 --privileged ubuntu bash
+sudo ip link add c_x_eth0 type veth peer name c_y_eth0
+
+sudo docker inspect --format '{{.State.Pid}}' c1
+149938
+
+sudo ip link set netns 149938 dev c_x_eth0
+docker exec -it c1 bash
+ip link set c_x_eth0 up
+ip addr add 10.20.1.2/16 dev c_x_eth0
+ip link set c_x_eth0 mtu 3400
+
+sudo ip link set dev c_y_eth0 up
+sudo ip link set c_y_eth0 mtu 3400
+```
+
+sudo service docker restart
+
+```
+docker run -it --name c1 --privileged ubuntu bash
+exit
+docker start c1
+sudo ip link add c1ineth0 type veth peer name c1outeth0
+
+sudo docker inspect --format '{{.State.Pid}}' c1
+568106
+
+sudo ip link set netns 569023 dev c1ineth0
+
+docker exec -it c1 bash
+ip link set c1ineth0 up
+ip addr add 10.20.1.2/16 dev c1ineth0
+ip link set c1ineth0 mtu 3400
+
+sudo ip link set dev c1outeth0 up
+sudo ip link set c1outeth0 mtu 3400
+
+```
+
+```
+apt-get update
+apt-get install -y net-tools
+apt install iproute2 -y
+apt-get install -y iputils-ping
+
+
+sudo ip link set $veth down
+sudo ip link delete $veth
+
+docker container inspect c1 | grep -i cpu
+docker stats
+```
+
+```
+--cpuset-cpus="1,3"
+docker update --cpuset-cpus "10" c1
+docker update --cpuset-cpus "12" c2
+docker update --cpuset-cpus "14" c3
+docker update --cpuset-cpus "16" c4
+docker update --cpuset-cpus "18" c5
+docker update --cpuset-cpus "20" c6
+docker update --cpuset-cpus "8" c7
+```
+
+```
+docker exec -it c1 bash
+
+sudo taskset --cpu-list 22 ./sw_corundum_main 10.20.1.1 120 1 1 config/node2.csv
+sudo taskset --cpu-list 22 ./sw_corundum_main 10.20.2.1 120 1 1 config/node1.csv
+
+sudo ./docker_up_mp_server.sh -n 0
+sudo ./docker_up_mp_client.sh -n 0
+
+sudo ./docker_kill_server.sh -n 0
+
+sudo ethtool -L ens2np0 rx 1
+sudo ethtool -L ens2np0 tx 1
+sudo set_irq_affinity.sh ens2np0
 ```
