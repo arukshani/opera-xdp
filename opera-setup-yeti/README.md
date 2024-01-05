@@ -10,7 +10,7 @@ and sudo reboot
 
 ```
 cd /home/dathapathu/emulator/github_code/opera-xdp/opera-setup-yeti
-./setup_master.sh
+./setup_master.sh 
 ```
 
 ### Setup IPs
