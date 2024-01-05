@@ -15,6 +15,7 @@ sudo ip link set dev enp65s0f0np0 up
 ./opera-setup-yeti/setup_worker.sh
 ./opera-setup-yeti/unique_ip_for_ns.sh
 
-
+cd opera-setup-leed
+python3 setup_mac.py
 ```
 
