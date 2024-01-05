@@ -4,7 +4,7 @@
 num_namespaces=0
 server="10.20.2.2"
 bandwidth="50000M"
-nic_local_numa_node=$(cat /sys/class/net/ens2np0/device/numa_node)
+nic_local_numa_node=$(cat /sys/class/net/enp65s0f0np0/device/numa_node)
 
 for arg in "$@"
 do
