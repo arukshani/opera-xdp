@@ -375,21 +375,21 @@ static void process_rx_packet(void *data, struct port_params *params, uint32_t l
 									 sizeof(struct ethhdr) + sizeof(struct iphdr) + sizeof(struct udphdr));
 
 		gre_hdr->proto = bpf_htons(ETH_P_TEB);
-		if (strcmp(params->iface, "vethout12") == 0) {
+		if (strcmp(params->iface, "vethout2") == 0) {
 			gre_hdr->flags = 0;
-		} else if (strcmp(params->iface, "vethout13") == 0) {
+		} else if (strcmp(params->iface, "vethout3") == 0) {
 			gre_hdr->flags = 1;
-		} else if (strcmp(params->iface, "vethout14") == 0) {
+		} else if (strcmp(params->iface, "vethout4") == 0) {
 			gre_hdr->flags = 2;
-		} else if (strcmp(params->iface, "vethout15") == 0) {
+		} else if (strcmp(params->iface, "vethout5") == 0) {
 			gre_hdr->flags = 3;
-		} else if (strcmp(params->iface, "vethout16") == 0) {
+		} else if (strcmp(params->iface, "vethout6") == 0) {
 			gre_hdr->flags = 4;
-		} else if (strcmp(params->iface, "vethout17") == 0) {
+		} else if (strcmp(params->iface, "vethout7") == 0) {
 			gre_hdr->flags = 5;
-		} else if (strcmp(params->iface, "vethout18") == 0) {
+		} else if (strcmp(params->iface, "vethout8") == 0) {
 			gre_hdr->flags = 6;
-		} else if (strcmp(params->iface, "vethout19") == 0) {
+		} else if (strcmp(params->iface, "vethout9") == 0) {
 			gre_hdr->flags = 7;
 		}
 		

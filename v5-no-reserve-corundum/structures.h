@@ -300,7 +300,7 @@ static u64 n_pkts_tx[MAX_PORTS];
 static u64 n_cleanup_tx[MAX_PORTS];
 
 // char out_veth_arr[8][10] = {"crout12", "crout13", "crout14", "crout15", "crout16", "crout17", "crout18", "crout19"};
-char out_veth_arr[8][10] = {"vethout12", "vethout13", "vethout14", "vethout15", "vethout16", "vethout17", "vethout18", "vethout19"};
+char out_veth_arr[8][10] = {"vethout2", "vethout3", "vethout4", "vethout5", "vethout6", "vethout7", "vethout8", "vethout9"};
 
 static const struct sched_map {
 	const char *name;
