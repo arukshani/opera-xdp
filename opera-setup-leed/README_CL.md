@@ -22,5 +22,16 @@ python3 setup_mac.py
 
 python3 setup_all_to_all_arp.py configs/NSnode-1.csv //node2
 python3 setup_all_to_all_arp.py configs/NSnode-2.csv //node1
+
+sudo ethtool -L enp65s0f0np0 combined 1
+sudo ethtool -L enp65s0f0np0 rx 1
+sudo ethtool -L enp65s0f0np0 tx 1
+sudo set_irq_affinity.sh enp65s0f0np0
+
+
+```
+
+```
+sudo ip netns exec ns1 bash
 ```
 
