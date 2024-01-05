@@ -17,5 +17,7 @@ sudo ip link set dev enp65s0f0np0 up
 
 cd opera-setup-leed
 python3 setup_mac.py
+
+./get_veth_info.sh -n 7
 ```
 
