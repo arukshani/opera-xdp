@@ -43,7 +43,7 @@ typedef __u8  u8;
 #define SCHED_PRI__DEFAULT	0
 
 #ifndef WORKER_INFO_CSV
-#define WORKER_INFO_CSV "/home/dathapathu/emulator/github_code/cr_worker_info.csv"
+#define WORKER_INFO_CSV "/opt/opera-xdp/opera-setup-leed/configs/cr_worker_info.csv"
 #endif
 
 #ifndef OUTER_VETH_PREFIX
