@@ -40,7 +40,7 @@ for i in $(seq 1 8); do
     
     sudo ip netns exec $NEW_NAMESPACE_ID ip addr add $ns_ip_addr dev $INSIDE_VETH
     sudo ip netns exec $NEW_NAMESPACE_ID ip link set arp off dev $INSIDE_VETH
-    # sudo ip netns exec $NEW_NAMESPACE_ID ethtool -K $INSIDE_VETH tx off
+    sudo ip netns exec $NEW_NAMESPACE_ID ethtool -K $INSIDE_VETH tx off
     sudo ip netns exec $NEW_NAMESPACE_ID ip link set $INSIDE_VETH mtu 3500
     sudo ip link set $OUTSIDE_VETH mtu 3500
 
