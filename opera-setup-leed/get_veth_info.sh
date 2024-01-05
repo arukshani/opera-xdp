@@ -28,5 +28,5 @@ for i in $(seq 0 $num_namespaces); do
     ether=$(sudo ip netns exec ${myArray[$i]} ifconfig | awk '/ether / {print $2}')
     iface=$(sudo ip netns exec ${myArray[$i]} netstat -i | grep '^[a-z]' | awk '{print $1}' | grep -v 'lo')
     # echo $i, $node, ${myArray[$i]}, $iface, $ip, $ether
-    echo $i, $node, ${myArray[$i]}, $iface, $ip, $ether >> NS$node.csv
+    echo $i, $node, ${myArray[$i]}, $iface, $ip, $ether >> configs/NS$node.csv
 done
