@@ -19,5 +19,8 @@ cd opera-setup-leed
 python3 setup_mac.py
 
 ./get_veth_info.sh -n 7
+
+python3 setup_all_to_all_arp.py configs/NSnode-1.csv //node2
+python3 setup_all_to_all_arp.py configs/NSnode-2.csv //node1
 ```
 
