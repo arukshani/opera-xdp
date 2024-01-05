@@ -33,5 +33,8 @@ sudo set_irq_affinity.sh enp65s0f0np0
 
 ```
 sudo ip netns exec ns1 bash
+
+iperf3 -c 10.20.2.2 -p 5000
+iperf3 -s 10.20.2.2 -p 5000
 ```
 

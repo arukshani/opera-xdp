@@ -44,7 +44,9 @@ for i in $(seq 0 $num_namespaces);
 do
     # cpu_core_id=$(echo "$cpu_core_id+2" | bc)
     # numactl -N $nic_local_numa_node ip netns exec ${myArray[$i]} iperf3 -s ${serverList[$i]} -p $port &
-    sudo taskset --cpu-list $cpu_core_id ip netns exec ${myArray[$i]} iperf3 -s ${serverList[$i]} -p $port &
+    # sudo taskset --cpu-list $cpu_core_id ip netns exec ${myArray[$i]} iperf3 -s ${serverList[$i]} -p $port &
+    
+    sudo taskset --cpu-list $cpu_core_id ip netns exec ${myArray[$i]} iperf3 --daemon -s ${serverList[$i]} -p $port
     port=$(echo "500+$port" | bc)
     # numactl -N $nic_local_numa_node ip netns exec ${myArray[$i]} iperf3 -s ${serverList[$i]} -p $port &
     cpu_core_id=$(echo "$cpu_core_id+2" | bc)
