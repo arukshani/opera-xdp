@@ -67,12 +67,13 @@ sudo ip netns exec ns1 bash
 IRQ Affinity
 https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/6/html/performance_tuning_guide/s-cpu-irq
 
- echo 0000,00000000,00000001 > sudo tee /proc/irq/196/smp_affinity
+ echo 0000,00000000,00000001 | sudo tee /proc/irq/196/smp_affinity
  echo 0000,00000000,00000004 | sudo tee /proc/irq/197/smp_affinity
  echo 0000,00000000,00000008 | sudo tee /proc/irq/198/smp_affinity
  echo 0000,00000000,00000010 | sudo tee /proc/irq/199/smp_affinity
  echo 0000,00000000,00000020 | sudo tee /proc/irq/200/smp_affinity
  echo 0000,00000000,00000040 | sudo tee /proc/irq/201/smp_affinity
+ echo 0000,00000000,00000040 | sudo tee /proc/irq/202/smp_affinity
 
 cat /proc/irq/196/smp_affinity (0000,00000000,00000001)
 

@@ -34,14 +34,16 @@ sudo ip link set ens2np0 mtu 3490
 
 ```
 
+cd /home/dathapathu/emulator/github_code/opera-xdp/v5-no-reserve-corundum
+
 cd /home/dathapathu/emulator/github_code/opera-xdp/test-corundum
 cd /home/dathapathu/emulator/github_code/opera-xdp/opera-test-tools
 
 sudo taskset --cpu-list 32 ./sw_corundum_1 10.20.1.1 120 3 3
 sudo taskset --cpu-list 32 ./sw_corundum_1 10.20.2.1 120 3 3
 
-sudo taskset --cpu-list 22 ./sw_corundum_1 10.20.1.1 120 1 1 config/node2.csv
-sudo taskset --cpu-list 22 ./sw_corundum_1 10.20.2.1 120 1 1 config/node1.csv
+sudo taskset --cpu-list 22 ./sw_corundum_1 10.20.1.1 120 7 7 config/node2.csv
+sudo taskset --cpu-list 22 ./sw_corundum_1 10.20.2.1 120 7 7 config/node1.csv
 
 sudo ./uq_tcp_ns_client.sh -n 0 -i ens2np0
 sudo ./uq_tcp_ns_server.sh -n 0 -i ens2np0
@@ -52,4 +54,23 @@ sudo ./uq_mp_client.sh -n 0
 sudo ethtool -L ens2np0 rx 1
 sudo ethtool -L ens2np0 tx 1
 sudo set_irq_affinity.sh ens2np0
+```
+
+```
+sudo taskset --cpu-list 14 ./sw_corundum_1 10.20.1.1 120 8 8 config/node2.csv
+sudo taskset --cpu-list 14 ./sw_corundum_1 10.20.2.1 120 8 8 config/node1.csv
+```
+
+```
+sudo ip netns exec ns1 bash
+cat /sys/class/net/vethin2/queues/rx-0/rps_cpus
+
+#core 9
+echo 0000,00000000,00000200 | sudo tee /sys/class/net/vethin2/queues/rx-0/rps_cpus
+echo 0000,00000000,00000800 | sudo tee /sys/class/net/vethin3/queues/rx-0/rps_cpus
+echo 0000,00000000,00002000 | sudo tee /sys/class/net/vethin4/queues/rx-0/rps_cpus
+echo 0000,00000000,00008000 | sudo tee /sys/class/net/vethin5/queues/rx-0/rps_cpus
+echo 0000,00000000,00020000 | sudo tee /sys/class/net/vethin6/queues/rx-0/rps_cpus
+echo 0000,00000000,00080000 | sudo tee /sys/class/net/vethin7/queues/rx-0/rps_cpus
+echo 0000,00000000,00200000 | sudo tee /sys/class/net/vethin8/queues/rx-0/rps_cpus
 ```

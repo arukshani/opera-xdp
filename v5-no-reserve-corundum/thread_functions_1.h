@@ -763,7 +763,6 @@ thread_func_nic(void *arg)
 					btx->len[0] = ret_val->new_len;
 					btx->n_pkts++;
 
-					// if (ret_val->which_veth == 0) {
 					if (veth_side_queue[ret_val->which_veth] != NULL)
 					{
 						int ret = mpmc_queue_push(veth_side_queue[ret_val->which_veth], (void *) btx);

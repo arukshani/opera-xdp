@@ -28,7 +28,7 @@ for i in $(seq 0 $num_namespaces); do
     cpu_core_id=$(echo "$cpu_core_id+2" | bc)
     # sudo taskset --cpu-list $cpu_core_id ip netns exec ${myArray[$i]} iperf -c $server -p $port -u -t 30 -b $bandwidth &
     # sudo taskset --cpu-list $cpu_core_id ip netns exec ${myArray[$i]} iperf -c $server -p $port -u -t 30 -b $bandwidth &
-    sudo numactl -N $nic_local_numa_node ip netns exec ${myArray[$i]} iperf -c ${serverList[$i]} -p $port -u -t 30 -b $bandwidth -P 2 &
+    sudo numactl -N $nic_local_numa_node ip netns exec ${myArray[$i]} iperf -c ${serverList[$i]} -p $port -u -t 30 -b $bandwidth -P 5 &
     # sudo numactl -N $nic_local_numa_node ip netns exec ${myArray[$i]} iperf -c $server -p $port -u -t 30 -b $bandwidth &
     
 done
