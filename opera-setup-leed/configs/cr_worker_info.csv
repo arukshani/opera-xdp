@@ -1,2 +1,2 @@
-10.20.1.1,enp65s0f0np0,0c:42:a1:8c:db:cc,eno1,/dev/ptp0,0x0a140101
-10.20.2.1,enp65s0f0np0,0c:42:a1:8c:db:ec,eno1,/dev/ptp0,0x0a140201
+10.20.1.1,enp175s0np1,00:21:b2:25:1d:f1,eno1,/dev/ptp0,0x0a140101
+10.20.2.1,enp175s0np1,00:21:b2:25:1d:b1,eno1,/dev/ptp0,0x0a140201

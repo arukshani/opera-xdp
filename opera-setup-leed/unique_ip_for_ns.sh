@@ -1,6 +1,6 @@
 #!/bin/bash
 
-NODE_INTERFACE=enp65s0f0np0;
+NODE_INTERFACE=enp175s0np1;
 NAMESPACE_ID=ns;
 # INSIDE_VETH=veth;
 # OUTSIDE_VETH=veth;

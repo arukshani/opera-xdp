@@ -12,13 +12,13 @@ sudo apt-get -y install jq
 sudo apt-get -y install linuxptp
 sudo apt-get -y install libmnl-dev
 sudo apt-get -y install m4
-sudo apt-get -y install iperf3
-sudo apt-get -y install htop
+# sudo apt-get -y install iperf3
+# sudo apt-get -y install htop
 
 #Get interface 
 # NODE_INTERFACE=$(ifconfig | grep -B1 "inet $1" | awk '$1!="inet" && $1!="--" {print $1}')
 # NODE_INTERFACE=${NODE_INTERFACE::-1}
-NODE_INTERFACE=enp65s0f0np0
+NODE_INTERFACE=enp175s0np1
 # sudo ip link set $NODE_INTERFACE mtu 3490
 
 echo 2| sudo tee /sys/class/net/$NODE_INTERFACE/napi_defer_hard_irqs

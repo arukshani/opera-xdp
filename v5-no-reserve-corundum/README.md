@@ -74,3 +74,22 @@ echo 0000,00000000,00020000 | sudo tee /sys/class/net/vethin6/queues/rx-0/rps_cp
 echo 0000,00000000,00080000 | sudo tee /sys/class/net/vethin7/queues/rx-0/rps_cpus
 echo 0000,00000000,00200000 | sudo tee /sys/class/net/vethin8/queues/rx-0/rps_cpus
 ```
+
+```
+cd /opt/opera-xdp/opera-test-tools
+cd /opt/opera-xdp/v5-no-reserve-corundum
+cd /opt/opera-xdp/opera-setup-leed
+
+sudo taskset --cpu-list 24 ./sw_corundum_1 10.20.1.1 120 7 7 config/node2.csv
+sudo taskset --cpu-list 24 ./sw_corundum_1 10.20.2.1 120 7 7 config/node1.csv
+
+sudo ./uq_mp_server.sh -n 0
+sudo ./uq_mp_client.sh -n 0
+
+sudo ethtool -L enp175s0np1 rx 1
+sudo ethtool -L enp175s0np1 tx 1
+sudo ./set_irq_affinity.sh enp175s0np1
+
+echo 2| sudo tee /sys/class/net/enp175s0np1/napi_defer_hard_irqs
+echo 200000 | sudo tee /sys/class/net/enp175s0np1/gro_flush_timeout
+```

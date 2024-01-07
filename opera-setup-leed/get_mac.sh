@@ -1,7 +1,7 @@
 #!/bin/bash
 
-NODE_IN=enp65s0f0np0
-lan_addr=$(ip -f inet addr show enp65s0f0np0 | awk '/inet / {print substr($2, 1, length($2)-3)}')
+NODE_IN=enp175s0np1
+lan_addr=$(ip -f inet addr show enp175s0np1 | awk '/inet / {print substr($2, 1, length($2)-3)}')
 
 #Get veth mac
 # VETH0_MAC=$(sudo ip netns exec blue ifconfig veth0 | awk '/ether/ {print $2}')
