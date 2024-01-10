@@ -10,13 +10,55 @@
 #     x=$(echo "$x+1" | bc)
 # done
 
-echo "02,00000000,00000000" | sudo tee /proc/irq/340/smp_affinity 
-echo "04,00000000,00000000" | sudo tee /proc/irq/341/smp_affinity 
-echo "08,00000000,00000000" | sudo tee /proc/irq/342/smp_affinity 
-echo "10,00000000,00000000" | sudo tee /proc/irq/343/smp_affinity 
-echo "20,00000000,00000000" | sudo tee /proc/irq/344/smp_affinity 
-echo "40,00000000,00000000" | sudo tee /proc/irq/345/smp_affinity 
-echo "80,00000000,00000000" | sudo tee /proc/irq/346/smp_affinity 
+echo 0| sudo tee /sys/class/net/vethout2/napi_defer_hard_irqs
+echo 0 | sudo tee /sys/class/net/vethout2/gro_flush_timeout
+echo 0| sudo tee /sys/class/net/vethout3/napi_defer_hard_irqs
+echo 0 | sudo tee /sys/class/net/vethout3/gro_flush_timeout
+echo 0| sudo tee /sys/class/net/vethout4/napi_defer_hard_irqs
+echo 0 | sudo tee /sys/class/net/vethout4/gro_flush_timeout
+echo 0| sudo tee /sys/class/net/vethout5/napi_defer_hard_irqs
+echo 0 | sudo tee /sys/class/net/vethout5/gro_flush_timeout
+echo 0| sudo tee /sys/class/net/vethout6/napi_defer_hard_irqs
+echo 0 | sudo tee /sys/class/net/vethout6/gro_flush_timeout
+echo 0| sudo tee /sys/class/net/vethout7/napi_defer_hard_irqs
+echo 0 | sudo tee /sys/class/net/vethout7/gro_flush_timeout
+echo 0| sudo tee /sys/class/net/vethout8/napi_defer_hard_irqs
+echo 0 | sudo tee /sys/class/net/vethout8/gro_flush_timeout
+echo 0| sudo tee /sys/class/net/vethout9/napi_defer_hard_irqs
+echo 0 | sudo tee /sys/class/net/vethout9/gro_flush_timeout
+
+# echo 2| sudo tee /sys/class/net/vethout2/napi_defer_hard_irqs
+# echo 200000 | sudo tee /sys/class/net/vethout2/gro_flush_timeout
+# echo 2| sudo tee /sys/class/net/vethout3/napi_defer_hard_irqs
+# echo 200000 | sudo tee /sys/class/net/vethout3/gro_flush_timeout
+# echo 2| sudo tee /sys/class/net/vethout4/napi_defer_hard_irqs
+# echo 200000 | sudo tee /sys/class/net/vethout4/gro_flush_timeout
+# echo 2| sudo tee /sys/class/net/vethout5/napi_defer_hard_irqs
+# echo 200000 | sudo tee /sys/class/net/vethout5/gro_flush_timeout
+# echo 2| sudo tee /sys/class/net/vethout6/napi_defer_hard_irqs
+# echo 200000 | sudo tee /sys/class/net/vethout6/gro_flush_timeout
+# echo 2| sudo tee /sys/class/net/vethout7/napi_defer_hard_irqs
+# echo 200000 | sudo tee /sys/class/net/vethout7/gro_flush_timeout
+# echo 2| sudo tee /sys/class/net/vethout8/napi_defer_hard_irqs
+# echo 200000 | sudo tee /sys/class/net/vethout8/gro_flush_timeout
+# echo 2| sudo tee /sys/class/net/vethout9/napi_defer_hard_irqs
+# echo 200000 | sudo tee /sys/class/net/vethout9/gro_flush_timeout
+
+# echo "00,00000000,00000004" | sudo tee /proc/irq/340/smp_affinity 
+# echo "00,00000000,00000010" | sudo tee /proc/irq/341/smp_affinity 
+# echo "00,00000000,00000040" | sudo tee /proc/irq/342/smp_affinity 
+# echo "00,00000000,00000100" | sudo tee /proc/irq/343/smp_affinity 
+# echo "00,00000000,00000400" | sudo tee /proc/irq/344/smp_affinity 
+# echo "00,00000000,00001000" | sudo tee /proc/irq/345/smp_affinity 
+# echo "00,00000000,00004000" | sudo tee /proc/irq/346/smp_affinity 
+
+# echo "02,00000000,00000000" | sudo tee /proc/irq/340/smp_affinity 
+# echo "04,00000000,00000000" | sudo tee /proc/irq/341/smp_affinity 
+# echo "08,00000000,00000000" | sudo tee /proc/irq/342/smp_affinity 
+# echo "10,00000000,00000000" | sudo tee /proc/irq/343/smp_affinity 
+# echo "20,00000000,00000000" | sudo tee /proc/irq/344/smp_affinity 
+# echo "40,00000000,00000000" | sudo tee /proc/irq/345/smp_affinity 
+# echo "80,00000000,00000000" | sudo tee /proc/irq/346/smp_affinity 
 
 # echo "04,00000000,00000000" | sudo tee /proc/irq/340/smp_affinity 
 # echo "08,00000000,00000000" | sudo tee /proc/irq/341/smp_affinity 

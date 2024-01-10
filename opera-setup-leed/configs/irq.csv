@@ -72,3 +72,82 @@
 69 - 20,00000000,00000000
 70 - 40,00000000,00000000
 71 - 80,00000000,00000000
+
+
+7_7===================================
+
+APP: 18
+Create NIC TX thread 0: 19
+Create NIC TX thread 1: 20
+Create NIC TX thread 2: 21
+Create NIC TX thread 3: 22
+Create NIC TX thread 4: 23
+Create NIC TX thread 5: 24
+Create NIC TX thread 6: 25
+Create NIC RX thread 7: 26
+Create NIC RX thread 8: 27
+Create NIC RX thread 9: 28
+Create NIC RX thread 10: 29
+Create NIC RX thread 11: 30
+Create NIC RX thread 12: 31
+Create NIC RX thread 13: 32
+Create VETH RX thread 14: 33
+Create VETH RX thread 15: 34
+Create VETH RX thread 16: 35
+Create VETH RX thread 17: 54
+Create VETH RX thread 18: 55
+Create VETH RX thread 19: 56
+Create VETH RX thread 20: 57
+Create VETH TX thread 21: 58
+Create VETH TX thread 22: 59
+Create VETH TX thread 23: 60
+Create VETH TX thread 24: 61
+Create VETH TX thread 25: 62
+Create VETH TX thread 26: 63
+Create VETH TX thread 27: 64
+
+65, 29 
+66, 30
+67, 31
+68, 32
+69, 33
+70, 34
+71, 35
+
+6_6==============================
+Create NIC TX thread 0: 19
+Create NIC TX thread 1: 20
+Create NIC TX thread 2: 21
+Create NIC TX thread 3: 22
+Create NIC TX thread 4: 23
+Create NIC TX thread 5: 24
+Create NIC RX thread 6: 25
+Create NIC RX thread 7: 26
+Create NIC RX thread 8: 27
+Create NIC RX thread 9: 28
+Create NIC RX thread 10: 29
+Create NIC RX thread 11: 30
+Create VETH RX thread 12: 31
+Create VETH RX thread 13: 32
+Create VETH RX thread 14: 33
+Create VETH RX thread 15: 34
+Create VETH RX thread 16: 35
+Create VETH RX thread 17: 54
+Create VETH TX thread 18: 55
+Create VETH TX thread 19: 56
+Create VETH TX thread 20: 57
+Create VETH TX thread 21: 58
+Create VETH TX thread 22: 59
+Create VETH TX thread 23: 60
+
+61, 25
+62, 26
+63, 27
+64, 28
+65, 29 
+66, 30
+67, 31
+68, 32
+69, 33
+70, 34
+71, 35

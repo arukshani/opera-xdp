@@ -38,7 +38,7 @@ done
 myArray=("ns1" "ns2" "ns3" "ns4" "ns5" "ns6" "ns7" "ns8")
 serverList=("10.20.2.2" "10.20.2.3" "10.20.2.4" "10.20.2.5" "10.20.2.6" "10.20.2.7" "10.20.2.8" "10.20.2.9")
 
-cpu_core_id=$(echo "58" | bc)
+cpu_core_id=$(echo "65" | bc)
 port=$(echo "5100" | bc);
 for i in $(seq 0 $num_namespaces);
 do
@@ -47,6 +47,7 @@ do
     # sudo taskset --cpu-list $cpu_core_id ip netns exec ${myArray[$i]} iperf3 -s ${serverList[$i]} -p $port &
     
     sudo taskset --cpu-list $cpu_core_id ip netns exec ${myArray[$i]} iperf3 --daemon -s ${serverList[$i]} -p $port
+    # ip netns exec ${myArray[$i]} iperf3 --daemon -s ${serverList[$i]} -p $port
     port=$(echo "500+$port" | bc)
     # numactl -N $nic_local_numa_node ip netns exec ${myArray[$i]} iperf3 -s ${serverList[$i]} -p $port &
     cpu_core_id=$(echo "$cpu_core_id+1" | bc)

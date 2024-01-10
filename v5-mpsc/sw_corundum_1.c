@@ -71,6 +71,7 @@
 #include "map.h"
 #include "structures.h"
 #include "mpmc_queue.h"
+// #include "mpsc.h"
 #include "memory.h"
 #include "plumbing.h"
 #include "mempool.h"
@@ -332,10 +333,10 @@ int main(int argc, char **argv)
 		{
 			thread_core_id = 54;
 		}
-		if (thread_core_id == 72)
-		{
-			thread_core_id = 36;
-		}
+		// if (thread_core_id == 72)
+		// {
+		// 	thread_core_id = 36;
+		// }
 	}
 	
 
@@ -428,22 +429,27 @@ int main(int argc, char **argv)
 	}
 
 	struct mpmc_queue return_path_veth_queue[13];
-	struct mpmc_queue local_dest_queue[NUM_OF_PER_DEST_QUEUES];
-	struct mpmc_queue non_local_dest_queue[NUM_OF_PER_DEST_QUEUES];
+	// struct mpmc_queue local_dest_queue[NUM_OF_PER_DEST_QUEUES];
+	// struct mpmc_queue non_local_dest_queue[NUM_OF_PER_DEST_QUEUES];
+	// struct mpscq *return_path_veth_queue[13];
+	// struct mpscq *local_dest_queue[NUM_OF_PER_DEST_QUEUES];
+	// struct mpscq *non_local_dest_queue[NUM_OF_PER_DEST_QUEUES];
 	
 	// local queues
 	for (i = 0; i < NUM_OF_PER_DEST_QUEUES; i++)
 	{
-		mpmc_queue_init(&local_dest_queue[i], MAX_BURST_TX_OBJS, &memtype_heap);
-		local_per_dest_queue[i] = &local_dest_queue[i];
+		// mpmc_queue_init(&local_dest_queue[i], MAX_BURST_TX_OBJS, &memtype_heap);
+		// local_per_dest_queue[i] = &local_dest_queue[i];
+		local_per_dest_queue[i] = ringbuf_create(MAX_BURST_TX_OBJS);
 	}
 	
 
 	// non-local queues
 	for (i = 0; i < NUM_OF_PER_DEST_QUEUES; i++)
 	{
-		mpmc_queue_init(&non_local_dest_queue[i], MAX_BURST_TX_OBJS, &memtype_heap);
-		non_local_per_dest_queue[i] = &non_local_dest_queue[i];
+		// mpmc_queue_init(&non_local_dest_queue[i], MAX_BURST_TX_OBJS, &memtype_heap);
+		// non_local_per_dest_queue[i] = &non_local_dest_queue[i];
+		non_local_per_dest_queue[i] = ringbuf_create(MAX_BURST_TX_OBJS);
 	}
 
     
@@ -453,6 +459,7 @@ int main(int argc, char **argv)
 	{
 		mpmc_queue_init(&return_path_veth_queue[w], MAX_BURST_TX_OBJS, &memtype_heap);
 		veth_side_queue[w] = &return_path_veth_queue[w];
+		// veth_side_queue[w] = ringbuf_create(MAX_BURST_TX_OBJS);
 	}
 
 	/* NIC TX Threads. */
@@ -715,6 +722,7 @@ int main(int argc, char **argv)
 	
     for (w = 0; w < veth_port_count; w++)
 	{
+		// ringbuf_free(veth_side_queue[w]);
 		int ret = mpmc_queue_destroy(veth_side_queue[w]);
 		if (ret)
 			printf("Failed to destroy queue: %d", ret);
@@ -722,13 +730,15 @@ int main(int argc, char **argv)
 
 	for (w = 0; w < NUM_OF_PER_DEST_QUEUES; w++)
 	{
-		int ret = mpmc_queue_destroy(local_per_dest_queue[w]);
-		if (ret)
-			printf("Failed to destroy queue: %d", ret);
+		ringbuf_free(local_per_dest_queue[w]);
+		ringbuf_free(non_local_per_dest_queue[w]);
+		// int ret = mpmc_queue_destroy(local_per_dest_queue[w]);
+		// if (ret)
+		// 	printf("Failed to destroy queue: %d", ret);
 
-		ret = mpmc_queue_destroy(non_local_per_dest_queue[w]);
-		if (ret)
-			printf("Failed to destroy queue: %d", ret);
+		// ret = mpmc_queue_destroy(non_local_per_dest_queue[w]);
+		// if (ret)
+		// 	printf("Failed to destroy queue: %d", ret);
 	}
 
 	return 0;

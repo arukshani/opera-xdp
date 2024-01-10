@@ -40,8 +40,8 @@ cd /home/dathapathu/emulator/github_code/opera-xdp/opera-test-tools
 sudo taskset --cpu-list 32 ./sw_corundum_1 10.20.1.1 120 3 3
 sudo taskset --cpu-list 32 ./sw_corundum_1 10.20.2.1 120 3 3
 
-sudo taskset --cpu-list 32 ./sw_corundum_main 10.20.1.1 120 6 6 config/node2.csv
-sudo taskset --cpu-list 32 ./sw_corundum_main 10.20.2.1 120 6 6 config/node1.csv
+sudo taskset --cpu-list 18 ./sw_corundum_main 10.20.1.1 120 7 7 config/node2.csv
+sudo taskset --cpu-list 18 ./sw_corundum_main 10.20.2.1 120 7 7 config/node1.csv
 
 sudo ./uq_tcp_ns_client.sh -n 0 -i ens2np0
 sudo ./uq_tcp_ns_server.sh -n 0 -i ens2np0

@@ -334,7 +334,11 @@ int main(int argc, char **argv)
 	for (x = 0; x < n_threads; x++)
 	{
 		thread_data[x].cpu_core_id = thread_core_id; 
-		thread_core_id = thread_core_id + 2;
+		thread_core_id = thread_core_id + 1;
+		if (thread_core_id == 36)
+		{
+			thread_core_id = 54;
+		}
 	}
 	
 

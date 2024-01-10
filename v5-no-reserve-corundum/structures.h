@@ -51,7 +51,7 @@ typedef __u8  u8;
 #endif
 
 #ifndef START_THREAD_CORE_ID
-#define START_THREAD_CORE_ID 18
+#define START_THREAD_CORE_ID 19
 #endif
 
 #ifndef MAX_PORTS
