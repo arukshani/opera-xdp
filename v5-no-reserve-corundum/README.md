@@ -83,8 +83,8 @@ cd /opt/opera-xdp/opera-test-tools
 cd /opt/opera-xdp/v5-no-reserve-corundum
 cd /opt/opera-xdp/opera-setup-leed
 
-sudo taskset --cpu-list 18 ./sw_corundum_1 10.20.1.1 120 7 7 config/node2.csv
-sudo taskset --cpu-list 18 ./sw_corundum_1 10.20.2.1 120 7 7 config/node1.csv
+sudo taskset --cpu-list 18 ./sw_corundum_1 10.20.1.1 120 1 1 config/node2.csv
+sudo taskset --cpu-list 18 ./sw_corundum_1 10.20.2.1 120 1 1 config/node1.csv
 
 sudo ./uq_mp_server.sh -n 0
 sudo ./uq_mp_client.sh -n 0
