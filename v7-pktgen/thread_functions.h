@@ -491,6 +491,8 @@ thread_func_veth_rx(void *arg)
 				continue;
 			}
 
+			fake_port_rx->n_pkts_rx += n_pkts;
+
 			int j;
 			for (j = 0; j < n_pkts; j++)
 			{
@@ -508,6 +510,7 @@ thread_func_veth_rx(void *arg)
 						btx->n_pkts++;
 
 						// printf("veth rx: addr: %d, len: %d \n", pkt_addr, PKT_SIZE);
+						
 
 						if (local_dest_queue != NULL)
 						{

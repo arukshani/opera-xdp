@@ -195,7 +195,59 @@ print_port_stats_all(u64 ns_diff)
 	print_port_stats_header();
 	for (i = 0; i < n_nic_ports; i++)
 		print_port_stats(i, ns_diff);
+
+	// for (i = n_nic_ports; i < n_ports; i++) //fake port stats
+	// 	print_port_stats(i, ns_diff);
+
 	print_port_stats_trailer();
+}
+
+static void
+print_port_throughput(u64 ns_diff)
+{
+	int i;
+	double rx_bps=0, tx_bps=0, rx_pps=0, tx_pps=0;
+	print_port_stats_header();
+	for (i = 0; i < n_nic_ports; i++)
+	{
+		
+		double local_rx_pps, local_tx_pps;
+		struct port *p = ports[i];
+		local_rx_pps = ((p->n_pkts_rx - n_pkts_rx[i]) * 1000000000. / ns_diff);
+		local_tx_pps = ((p->n_pkts_tx - n_pkts_tx[i]) * 1000000000. / ns_diff);
+
+		rx_pps += local_rx_pps;
+		tx_pps += local_tx_pps;
+		// rx_bps = (rx_pps * 8 * 3496) / 1000000000;
+		// tx_bps = (tx_pps * 8 * 3496) / 1000000000;
+		// printf("port:%d, rx_bps: %13.0fGbps, tx_bps: %13.0fGbps \n", i, rx_pps, tx_pps);
+
+		
+		printf("| %4d | %12llu | %13.0f | %12llu | %13.0f |\n",
+	       i,
+	       p->n_pkts_rx,
+	       local_rx_pps,
+	       p->n_pkts_tx,
+	       local_tx_pps);
+		
+
+		n_pkts_rx[i] = p->n_pkts_rx;
+		n_pkts_tx[i] = p->n_pkts_tx;
+
+	}
+	print_port_stats_trailer();
+
+	printf("All ports:%d, rx_pps: %13.0f, tx_pps: %13.0f \n", i, rx_pps, tx_pps);
+
+	rx_bps = (rx_pps * 8 * 3496) / 1000000000;
+	tx_bps = (tx_pps * 8 * 3496) / 1000000000;
+
+	printf("All ports:%d, rx_Gbps: %13.0f, tx_Gbps: %13.0f \n", i, rx_bps, tx_bps);
+	rx_pps=0;
+	tx_pps=0;
+	rx_bps = 0;
+	tx_bps = 0;
+	
 }
 
 // int random(int min, int max){
@@ -592,6 +644,8 @@ int main(int argc, char **argv)
 		t->src_port_pkt_gen = (rand() % (higher[v] - lower[v] + 1)) + lower[v];
 		// t->src_port_pkt_gen_2 = (rand() % (higher[v] - lower[v] + 1)) + lower[v];
 		t->dst_port_pkt_gen = (rand() % (higher[v] - lower[v] + 1)) + lower[v];
+		// t->src_port_pkt_gen = 2333;
+		// t->dst_port_pkt_gen = 8888;
 		t->pkt_index=m;
 		m++;
 		// t->pkt_index_2=m;
@@ -711,7 +765,8 @@ int main(int argc, char **argv)
 		ns_diff = ns1 - ns0;
 		ns0 = ns1;
 
-		print_port_stats_all(ns_diff);
+		// print_port_stats_all(ns_diff);
+		print_port_throughput(ns_diff);
 	}
 
 	/* Threads completion. */

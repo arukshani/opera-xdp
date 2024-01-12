@@ -100,5 +100,5 @@ sudo ethtool -g enp175s0np1
 echo 2| sudo tee /sys/class/net/enp175s0np1/napi_defer_hard_irqs
 echo 200000 | sudo tee /sys/class/net/enp175s0np1/gro_flush_timeout
 
-sudo ethtool -N enp175s0np1 flow-type udp4 dst-port 5000 action 1
+sudo ethtool -N enp175s0np1 flow-type udp4 dst-port 8888 action 4
 ```
