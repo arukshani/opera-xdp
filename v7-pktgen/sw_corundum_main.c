@@ -566,10 +566,12 @@ int main(int argc, char **argv)
 	//VETH RX THREADS
 	int veth_rx_threads_start_index = total_nic_threads;
 	int veth_rx_threads_end_point = total_nic_threads + veth_port_count;
-	int v = 0;
+	int v = 0, m=0;
 	start_index_for_veth_ports  = n_nic_ports;
 	// u16 src_port = 4000;
 	// u16 dst_port = 5000;
+	int lower[10] = {1025, 7000, 14000, 21000, 28000, 35000, 42000, 49000, 50000, 10000};
+	int higher[10] = {7000, 14000, 21000, 30000, 35000, 42000, 49000, 65534, 65534, 20000};
 	for (i = veth_rx_threads_start_index; i < veth_rx_threads_end_point; i++)
 	{
 		struct thread_data *t = &thread_data[i];
@@ -578,18 +580,27 @@ int main(int argc, char **argv)
 		start_index_for_veth_ports = start_index_for_veth_ports + 1;
 
 		t->local_dest_queue_array[0] = local_per_dest_queue[v];
-		v++;
+		
 
 		// for (v=0; v < NUM_OF_PER_DEST_QUEUES; v++) 
 		// {
 		// 	t->local_dest_queue_array[v] = local_per_dest_queue[v];
 		// 	// t->transit_local_dest_queue_array[v] = transit_local_per_dest_queue[v];
 		// }
-		t->src_port_pkt_gen = (rand() % (7000 - 4000 + 1)) + 4000;
-		t->dst_port_pkt_gen = (rand() % (9000 - 7000 + 1)) + 7000;
+		// t->src_port_pkt_gen = (rand() % (2000 - 1025 + 1)) + 1025;
+		// t->dst_port_pkt_gen = (rand() % (65534 - 3000 + 1)) + 3000;
+		t->src_port_pkt_gen = (rand() % (higher[v] - lower[v] + 1)) + lower[v];
+		// t->src_port_pkt_gen_2 = (rand() % (higher[v] - lower[v] + 1)) + lower[v];
+		t->dst_port_pkt_gen = (rand() % (higher[v] - lower[v] + 1)) + lower[v];
+		t->pkt_index=m;
+		m++;
+		// t->pkt_index_2=m;
+		// m++;
+		
 		// src_port = src_port + 10;
 		// dst_port = dst_port + 20;
 		t->n_ports_rx = 1;
+		v++;
 	}
 
 	//VETH TX THREADS

@@ -87,20 +87,20 @@ static void *memset32_htonl(void *dest, u32 val, u32 size)
 	return dest;
 }
 
-static void gen_eth_hdr_data(u16 src_port, u16 dst_port)
+static void gen_eth_hdr_data(u16 src_port, u16 dst_port, int pkt_index)
 {
     struct pktgen_hdr *pktgen_hdr;
 	struct udphdr *udp_hdr;
 	struct iphdr *ip_hdr;
 
-    struct ethhdr *eth_hdr = (struct ethhdr *)pkt_data;
+    struct ethhdr *eth_hdr = (struct ethhdr *)pkt_data[pkt_index];
 
-    udp_hdr = (struct udphdr *)(pkt_data +
+    udp_hdr = (struct udphdr *)(pkt_data[pkt_index] +
 					    sizeof(struct ethhdr) +
 					    sizeof(struct iphdr));
-    ip_hdr = (struct iphdr *)(pkt_data +
+    ip_hdr = (struct iphdr *)(pkt_data[pkt_index] +
                     sizeof(struct ethhdr));
-    pktgen_hdr = (struct pktgen_hdr *)(pkt_data +
+    pktgen_hdr = (struct pktgen_hdr *)(pkt_data[pkt_index] +
                         sizeof(struct ethhdr) +
                         sizeof(struct iphdr) +
                         sizeof(struct udphdr));
@@ -140,7 +140,7 @@ static void gen_eth_hdr_data(u16 src_port, u16 dst_port)
 	udp_hdr->len = htons(UDP_PKT_SIZE);
 
     /* UDP data */
-	memset32_htonl(pkt_data + PKT_HDR_SIZE, opt_pkt_fill_pattern,
+	memset32_htonl(pkt_data[pkt_index] + PKT_HDR_SIZE, opt_pkt_fill_pattern,
 		       UDP_PKT_DATA_SIZE);
 
 	/* UDP header checksum */

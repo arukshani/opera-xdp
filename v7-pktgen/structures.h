@@ -21,11 +21,11 @@ typedef __u8  u8;
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
 #ifndef MAX_BURST_RX
-#define MAX_BURST_RX 20
+#define MAX_BURST_RX 256
 #endif
 
 #ifndef MAX_BURST_TX
-#define MAX_BURST_TX 20
+#define MAX_BURST_TX 256
 #endif
 
 #ifndef MAX_BURST_TX_OBJS
@@ -289,7 +289,10 @@ struct thread_data {
 	struct mpmc_queue *transit_local_dest_queue_array[NUM_OF_PER_DEST_QUEUES];
 	struct mpmc_queue *transit_veth_side_queue_array[13];
 	u16 src_port_pkt_gen;
+	u16 src_port_pkt_gen_2; //two source ports for better rx utilization(rss)
 	u16 dst_port_pkt_gen;
+	int pkt_index;
+	int pkt_index_2;
 };
 
 static pthread_t threads[MAX_THREADS];
@@ -358,7 +361,7 @@ struct gre_hdr
 
 
 
-static u8 pkt_data[XSK_UMEM__DEFAULT_FRAME_SIZE];
+static u8 pkt_data[MAX_PORTS][XSK_UMEM__DEFAULT_FRAME_SIZE];
 
 #define PKTGEN_MAGIC 0xbe9be955
 struct pktgen_hdr {
