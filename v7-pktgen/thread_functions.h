@@ -15,6 +15,14 @@ static void print_pkt_info(uint8_t *pkt, uint32_t len)
 		inet_ntop(AF_INET, &ipv4->saddr, src_str, sizeof(src_str));
 		inet_ntop(AF_INET, &ipv4->daddr, dst_str, sizeof(dst_str));
 		printf(fmt, len, proto, "IPv4", src_str, dst_str);
+
+		if (ipv4->protocol == IPPROTO_UDP) 
+		{
+			struct udphdr *udp_hdr;
+			udp_hdr = (struct udphdr *)(ipv4 + 1);
+			printf("UDP %d, %d \n", ntohs(udp_hdr->source), ntohs(udp_hdr->dest));
+		}
+		
 	} else {
 		printf(fmt, len, proto, "Unknown", "", "");
 	}
@@ -459,6 +467,7 @@ thread_func_veth_rx(void *arg)
 	// 	local_dest_queue[x] = t->local_dest_queue_array[x];
 	// 	// transit_local_dest_queue[x] = t->transit_local_dest_queue_array[x];
 	// }
+	printf("src_port_pkt_gen:%d, dst_port_pkt_gen:%d \n", t->src_port_pkt_gen, t->dst_port_pkt_gen);
 	gen_eth_hdr_data(t->src_port_pkt_gen, t->dst_port_pkt_gen);
 	// printf("HELLO after gen_eth_hdr_data++++++++++++++++++\n");
 
@@ -768,6 +777,8 @@ thread_func_nic_rx(void *arg)
 				u64 addr = xsk_umem__add_offset_to_addr(brx->addr[j]);
 				u8 *pkt = xsk_umem__get_data(port_rx->params.bp->addr,
 											addr);
+											
+				// print_pkt_info(pkt, brx->len[j]);
 				bcache_prod(port_rx->bc, brx->addr[j]);
 			}
         }

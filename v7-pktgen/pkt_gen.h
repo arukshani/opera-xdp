@@ -1,3 +1,76 @@
+/*
+ * Fold a partial checksum
+ * This function code has been taken from
+ * Linux kernel include/asm-generic/checksum.h
+ */
+static inline __sum16 csum_fold(__wsum csum)
+{
+	u32 sum = (u32)csum;
+
+	sum = (sum & 0xffff) + (sum >> 16);
+	sum = (sum & 0xffff) + (sum >> 16);
+	return (__sum16)~sum;
+}
+
+/*
+ * This function code has been taken from
+ * Linux kernel lib/checksum.c
+ */
+static inline u32 from64to32(u64 x)
+{
+	/* add up 32-bit and 32-bit for 32+c bit */
+	x = (x & 0xffffffff) + (x >> 32);
+	/* add up carry.. */
+	x = (x & 0xffffffff) + (x >> 32);
+	return (u32)x;
+}
+
+__wsum csum_tcpudp_nofold(__be32 saddr, __be32 daddr,
+			  __u32 len, __u8 proto, __wsum sum);
+
+/*
+ * This function code has been taken from
+ * Linux kernel lib/checksum.c
+ */
+__wsum csum_tcpudp_nofold(__be32 saddr, __be32 daddr,
+			  __u32 len, __u8 proto, __wsum sum)
+{
+	unsigned long long s = (u32)sum;
+
+	s += (u32)saddr;
+	s += (u32)daddr;
+#ifdef __BIG_ENDIAN__
+	s += proto + len;
+#else
+	s += (proto + len) << 8;
+#endif
+	return (__wsum)from64to32(s);
+}
+
+/*
+ * This function has been taken from
+ * Linux kernel include/asm-generic/checksum.h
+ */
+static inline __sum16
+csum_tcpudp_magic(__be32 saddr, __be32 daddr, __u32 len,
+		  __u8 proto, __wsum sum)
+{
+	return csum_fold(csum_tcpudp_nofold(saddr, daddr, len, proto, sum));
+}
+
+static inline u16 udp_csum(u32 saddr, u32 daddr, u32 len,
+			   u8 proto, u16 *udp_pkt)
+{
+	u32 csum = 0;
+	u32 cnt = 0;
+
+	/* udp hdr and data */
+	for (; cnt < len; cnt += 2)
+		csum += udp_pkt[cnt >> 1];
+
+	return csum_tcpudp_magic(saddr, daddr, len, proto, csum);
+}
+
 static void *memset32_htonl(void *dest, u32 val, u32 size)
 {
 	u32 *ptr = (u32 *)dest;
@@ -55,7 +128,7 @@ static void gen_eth_hdr_data(u16 src_port, u16 dst_port)
 
     ip_hdr->check = 0;
 	// ip_hdr->check = ip_fast_csum((const void *)ip_hdr, ip_hdr->ihl);
-    // compute_ip_checksum(ip_hdr);
+    compute_ip_checksum(ip_hdr);
 
 	// printf("HELLO  3++++++++++++++++++\n");
 
@@ -72,6 +145,8 @@ static void gen_eth_hdr_data(u16 src_port, u16 dst_port)
 
 	/* UDP header checksum */
 	udp_hdr->check = 0;
+	udp_hdr->check = udp_csum(ip_hdr->saddr, ip_hdr->daddr, UDP_PKT_SIZE,
+				  IPPROTO_UDP, (u16 *)udp_hdr);
 	// printf("HELLO  4++++++++++++++++++\n");
 	// udp_hdr->check = udp_csum(ip_hdr->saddr, ip_hdr->daddr, UDP_PKT_SIZE,
 	// 			  IPPROTO_UDP, (u16 *)udp_hdr);

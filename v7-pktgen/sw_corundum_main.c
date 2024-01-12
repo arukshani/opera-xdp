@@ -198,6 +198,10 @@ print_port_stats_all(u64 ns_diff)
 	print_port_stats_trailer();
 }
 
+// int random(int min, int max){
+//    return min + rand() / (RAND_MAX / (max - min + 1) + 1);
+// }
+
 int main(int argc, char **argv)
 {
 	struct in_addr *ifa_inaddr;
@@ -564,8 +568,8 @@ int main(int argc, char **argv)
 	int veth_rx_threads_end_point = total_nic_threads + veth_port_count;
 	int v = 0;
 	start_index_for_veth_ports  = n_nic_ports;
-	u16 src_port = 4000;
-	u16 dst_port = 5000;
+	// u16 src_port = 4000;
+	// u16 dst_port = 5000;
 	for (i = veth_rx_threads_start_index; i < veth_rx_threads_end_point; i++)
 	{
 		struct thread_data *t = &thread_data[i];
@@ -581,10 +585,10 @@ int main(int argc, char **argv)
 		// 	t->local_dest_queue_array[v] = local_per_dest_queue[v];
 		// 	// t->transit_local_dest_queue_array[v] = transit_local_per_dest_queue[v];
 		// }
-		t->src_port_pkt_gen = src_port;
-		t->dst_port_pkt_gen = dst_port;
-		src_port = src_port + 10;
-		dst_port = dst_port + 20;
+		t->src_port_pkt_gen = (rand() % (7000 - 4000 + 1)) + 4000;
+		t->dst_port_pkt_gen = (rand() % (9000 - 7000 + 1)) + 7000;
+		// src_port = src_port + 10;
+		// dst_port = dst_port + 20;
 		t->n_ports_rx = 1;
 	}
 
