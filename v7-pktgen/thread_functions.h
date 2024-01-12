@@ -449,20 +449,21 @@ thread_func_veth_rx(void *arg)
 	CPU_SET(t->cpu_core_id, &cpu_cores);
 	pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpu_cores);
 
-	struct mpmc_queue *local_dest_queue[NUM_OF_PER_DEST_QUEUES];
+	struct mpmc_queue *local_dest_queue;
 	// struct mpmc_queue *transit_local_dest_queue[NUM_OF_PER_DEST_QUEUES];
+	local_dest_queue = t->local_dest_queue_array[0];
 
 	int x = 0;
-	for (x = 0; x < NUM_OF_PER_DEST_QUEUES; x++)
-	{
-		local_dest_queue[x] = t->local_dest_queue_array[x];
-		// transit_local_dest_queue[x] = t->transit_local_dest_queue_array[x];
-	}
+	// for (x = 0; x < NUM_OF_PER_DEST_QUEUES; x++)
+	// {
+	// 	local_dest_queue[x] = t->local_dest_queue_array[x];
+	// 	// transit_local_dest_queue[x] = t->transit_local_dest_queue_array[x];
+	// }
 	gen_eth_hdr_data();
 	// printf("HELLO after gen_eth_hdr_data++++++++++++++++++\n");
 
-	for (x = 0; x < 1; x++)
-    // while (!t->quit)
+	// for (x = 0; x < 1; x++)
+    while (!t->quit)
 	{
         struct port *fake_port_rx = t->ports_rx[0]; //fake port just to get slabs
 		if (fake_port_rx != NULL) {
@@ -482,7 +483,7 @@ thread_func_veth_rx(void *arg)
 				if (fake_port_rx->bc->bp != NULL)
 				{
 					memcpy(xsk_umem__get_data(fake_port_rx->bc->bp->addr, pkt_addr), pkt_data, PKT_SIZE);
-					print_pkt_info(xsk_umem__get_data(fake_port_rx->bc->bp->addr, pkt_addr), PKT_SIZE);
+					// print_pkt_info(xsk_umem__get_data(fake_port_rx->bc->bp->addr, pkt_addr), PKT_SIZE);
 
 					struct burst_tx *btx = calloc(1, sizeof(struct burst_tx));
 					if (btx != NULL)
@@ -491,12 +492,14 @@ thread_func_veth_rx(void *arg)
 						btx->len = PKT_SIZE;
 						btx->n_pkts++;
 
-						if (local_dest_queue[0] != NULL)
+						// printf("veth rx: addr: %d, len: %d \n", pkt_addr, PKT_SIZE);
+
+						if (local_dest_queue != NULL)
 						{
-							int ret = mpmc_queue_push(local_dest_queue[0], (void *) btx);
+							int ret = mpmc_queue_push(local_dest_queue, (void *) btx);
 							if (!ret) 
 							{
-								printf("local_dest_queue is full \n");
+								// printf("local_dest_queue is full \n");
 								//Release buffers to pool
 								bcache_prod(fake_port_rx->bc, pkt_addr);
 							}
@@ -517,20 +520,152 @@ thread_func_veth_rx(void *arg)
 	return NULL;
 }
 
-static inline u32
-port_nic_rx_burst(struct port *p, struct mpmc_queue *non_local_dest_queue[NUM_OF_PER_DEST_QUEUES])
-{
-    u32 n_pkts, pos, i;
+// static inline u32
+// port_nic_rx_burst(struct port *p, struct mpmc_queue *non_local_dest_queue[NUM_OF_PER_DEST_QUEUES])
+// {
+//     u32 n_pkts, pos, i;
 
-    n_pkts = bcache_cons_check(p->bc, MAX_BURST_RX);
+//     n_pkts = bcache_cons_check(p->bc, MAX_BURST_RX);
+
+// 	if (!n_pkts) {
+// 		printf("There are no consumer slabs....\n");
+// 		return 0;
+// 	}
+
+//     /* RXQ. */
+//     struct bpool *bp = p->bc->bp;
+// 	n_pkts = xsk_ring_cons__peek(&p->rxq, n_pkts, &pos);
+// 	if (!n_pkts)
+// 	{
+// 		if (xsk_ring_prod__needs_wakeup(&bp->umem_fq))
+// 		{
+// 			struct pollfd pollfd = {
+// 				.fd = xsk_socket__fd(p->xsk),
+// 				.events = POLLIN,
+// 			};
+
+// 			poll(&pollfd, 1, 0);
+// 		}
+// 		return 0;
+// 	}
+
+// 	struct return_process_rx *ret_val = calloc(1, sizeof(struct return_process_rx));
+//     for (i = 0; i < n_pkts; i++)
+// 	{
+// 		u64 addr_rx = xsk_ring_cons__rx_desc(&p->rxq, pos + i)->addr;
+// 		u32 len = xsk_ring_cons__rx_desc(&p->rxq, pos + i)->len;
+//         //process each packet and copy to per dest queue
+//         u64 addr = xsk_umem__add_offset_to_addr(addr_rx);
+// 		u8 *pkt = xsk_umem__get_data(p->params.bp->addr, addr);
+//         process_rx_packet(pkt, &p->params,len, addr_rx, ret_val);
+
+//         if (ret_val->new_len != 0) 
+//         {
+//             if (ret_val->new_len == 1)
+//             {
+//                 printf("TODO: NON Local queues implement later \n");
+//             }
+//             else 
+//             {
+// 				bcache_prod(p->bc, addr_rx);
+
+//                 // if (veth_side_queue[ret_val->which_veth] != NULL)
+// 				// {
+// 				// 	if (transit_veth_side_queue[ret_val->which_veth] != NULL)
+//             	// 	{
+// 				// 		void *obj;
+// 				// 		if (mpmc_queue_pull(transit_veth_side_queue[ret_val->which_veth], &obj) != NULL) {
+// 				// 			struct burst_tx *btx = calloc(1, sizeof(struct burst_tx));
+// 				// 			u8 *updated_pkt = xsk_umem__get_data(p->params.bp->addr, addr);
+// 				// 			u64 transit_addr = (u64 *)obj;
+// 				// 			transit_addr = updated_pkt;
+// 				// 			// memcpy(transit_addr, updated_pkt, ret_val->new_len);
+// 				// 			btx->addr = transit_addr;
+// 				// 			btx->len = ret_val->new_len;
+
+// 				// 			int ret = mpmc_queue_push(veth_side_queue[ret_val->which_veth], (void *) btx);
+// 				// 			if (!ret) 
+// 				// 			{
+// 				// 				printf("veth_side_queue is full \n");
+// 				// 			}
+// 				// 		}
+// 				// 		else {
+// 				// 			printf("transit_veth_side_queue returns NULL obj \n");
+// 				// 		}
+// 				// 	}
+// 				// 	else
+// 				// 	{
+// 				// 		printf("transit_veth_side_queue is NULL \n");
+// 				// 	}
+//                 //     bcache_prod(p->bc, addr_rx);
+//                 // }
+//                 // else
+//                 // {
+//                 //     printf("TODO: There is no veth_side_queue %d to push the packet \n", 0);
+//                 // }
+//             }
+//         }
+//         else
+//         {
+//             bcache_prod(p->bc, addr_rx);
+//         }
+// 	}
+// 	free(ret_val);
+
+//     xsk_ring_cons__release(&p->rxq, n_pkts);
+// 	p->n_pkts_rx += n_pkts;
+
+// 	/* UMEM FQ. */
+// 	for (;;)
+// 	{
+// 		int status;
+
+// 		status = xsk_ring_prod__reserve(&bp->umem_fq, n_pkts, &pos);
+// 		if (status == n_pkts)
+// 			break;
+
+// 		if (xsk_ring_prod__needs_wakeup(&bp->umem_fq))
+// 		{
+// 			struct pollfd pollfd = {
+// 				.fd = xsk_socket__fd(p->xsk),
+// 				.events = POLLIN,
+// 			};
+
+// 			poll(&pollfd, 1, 0);
+// 		}
+// 	}
+
+// 	for (i = 0; i < n_pkts; i++)
+// 		*xsk_ring_prod__fill_addr(&bp->umem_fq, pos + i) =
+// 			bcache_cons(p->bc);
+
+// 	xsk_ring_prod__submit(&bp->umem_fq, n_pkts);
+
+// 	// printf("nic rx done \n");
+
+// 	return n_pkts;
+// }
+
+static inline u32
+port_nic_rx_burst(struct port *p, struct burst_rx *b)
+{
+	u32 n_pkts, pos, i;
+	struct bpool *bp = p->bc->bp;
+
+	/* Free buffers for FQ replenish. */
+	n_pkts = ARRAY_SIZE(b->addr);
+
+	n_pkts = bcache_cons_check(p->bc, n_pkts);
 
 	if (!n_pkts) {
 		printf("There are no consumer slabs....\n");
 		return 0;
 	}
+		
 
-    /* RXQ. */
-    struct bpool *bp = p->bc->bp;
+	// printf("bp->n_slabs_available %ld \n", p->bc->bp->n_slabs_available);
+
+	/* RXQ. */
 	n_pkts = xsk_ring_cons__peek(&p->rxq, n_pkts, &pos);
 	if (!n_pkts)
 	{
@@ -543,73 +678,18 @@ port_nic_rx_burst(struct port *p, struct mpmc_queue *non_local_dest_queue[NUM_OF
 
 			poll(&pollfd, 1, 0);
 		}
+		// printf("There are no packets in rx ring....\n");
+		// recvfrom(xsk_socket__fd(p->xsk), NULL, 0, MSG_DONTWAIT, NULL, NULL);
 		return 0;
 	}
 
-	struct return_process_rx *ret_val = calloc(1, sizeof(struct return_process_rx));
-    for (i = 0; i < n_pkts; i++)
+	for (i = 0; i < n_pkts; i++)
 	{
-		u64 addr_rx = xsk_ring_cons__rx_desc(&p->rxq, pos + i)->addr;
-		u32 len = xsk_ring_cons__rx_desc(&p->rxq, pos + i)->len;
-        //process each packet and copy to per dest queue
-        u64 addr = xsk_umem__add_offset_to_addr(addr_rx);
-		u8 *pkt = xsk_umem__get_data(p->params.bp->addr, addr);
-        process_rx_packet(pkt, &p->params,len, addr_rx, ret_val);
-
-        if (ret_val->new_len != 0) 
-        {
-            if (ret_val->new_len == 1)
-            {
-                printf("TODO: NON Local queues implement later \n");
-            }
-            else 
-            {
-				bcache_prod(p->bc, addr_rx);
-
-                // if (veth_side_queue[ret_val->which_veth] != NULL)
-				// {
-				// 	if (transit_veth_side_queue[ret_val->which_veth] != NULL)
-            	// 	{
-				// 		void *obj;
-				// 		if (mpmc_queue_pull(transit_veth_side_queue[ret_val->which_veth], &obj) != NULL) {
-				// 			struct burst_tx *btx = calloc(1, sizeof(struct burst_tx));
-				// 			u8 *updated_pkt = xsk_umem__get_data(p->params.bp->addr, addr);
-				// 			u64 transit_addr = (u64 *)obj;
-				// 			transit_addr = updated_pkt;
-				// 			// memcpy(transit_addr, updated_pkt, ret_val->new_len);
-				// 			btx->addr = transit_addr;
-				// 			btx->len = ret_val->new_len;
-
-				// 			int ret = mpmc_queue_push(veth_side_queue[ret_val->which_veth], (void *) btx);
-				// 			if (!ret) 
-				// 			{
-				// 				printf("veth_side_queue is full \n");
-				// 			}
-				// 		}
-				// 		else {
-				// 			printf("transit_veth_side_queue returns NULL obj \n");
-				// 		}
-				// 	}
-				// 	else
-				// 	{
-				// 		printf("transit_veth_side_queue is NULL \n");
-				// 	}
-                //     bcache_prod(p->bc, addr_rx);
-                // }
-                // else
-                // {
-                //     printf("TODO: There is no veth_side_queue %d to push the packet \n", 0);
-                // }
-            }
-        }
-        else
-        {
-            bcache_prod(p->bc, addr_rx);
-        }
+		b->addr[i] = xsk_ring_cons__rx_desc(&p->rxq, pos + i)->addr;
+		b->len[i] = xsk_ring_cons__rx_desc(&p->rxq, pos + i)->len;
 	}
-	free(ret_val);
 
-    xsk_ring_cons__release(&p->rxq, n_pkts);
+	xsk_ring_cons__release(&p->rxq, n_pkts);
 	p->n_pkts_rx += n_pkts;
 
 	/* UMEM FQ. */
@@ -629,6 +709,7 @@ port_nic_rx_burst(struct port *p, struct mpmc_queue *non_local_dest_queue[NUM_OF
 			};
 
 			poll(&pollfd, 1, 0);
+			// recvfrom(xsk_socket__fd(p->xsk), NULL, 0, MSG_DONTWAIT, NULL, NULL);
 		}
 	}
 
@@ -637,8 +718,6 @@ port_nic_rx_burst(struct port *p, struct mpmc_queue *non_local_dest_queue[NUM_OF
 			bcache_cons(p->bc);
 
 	xsk_ring_prod__submit(&bp->umem_fq, n_pkts);
-
-	// printf("nic rx done \n");
 
 	return n_pkts;
 }
@@ -664,22 +743,35 @@ thread_func_nic_rx(void *arg)
 			non_local_dest_queue[w] = t->non_local_dest_queue_array[w];
 	}
 
-    // while (!t->quit)
-	// {
-    //     int k = 0;
-	// 	for (k = 0; k < assigned_queue_count; k++)
-	// 	{
-    //         struct port *port_rx = t->ports_rx[k];
-    //         u32 n_pkts;
-    //         n_pkts = port_nic_rx_burst(port_rx, non_local_dest_queue);
-                
-    //         if (!n_pkts) 
-    //         {
-    //             continue;
-    //         }
-    //     }
+    while (!t->quit)
+	{
+        int k = 0;
+		for (k = 0; k < assigned_queue_count; k++)
+		{
+            struct port *port_rx = t->ports_rx[k];
+            struct burst_rx *brx = &t->burst_rx;
 
-    // }
+			u32 n_pkts, j;
+
+			/* RX. */
+			n_pkts = port_nic_rx_burst(port_rx, brx);
+			
+
+			if (!n_pkts) 
+			{
+					// nic_rx_no_packet_counter++;
+					continue;
+			}
+
+			for (j = 0; j < n_pkts; j++)
+			{
+				u64 addr = xsk_umem__add_offset_to_addr(brx->addr[j]);
+				u8 *pkt = xsk_umem__get_data(port_rx->params.bp->addr,
+											addr);
+				bcache_prod(port_rx->bc, brx->addr[j]);
+			}
+        }
+    }
     printf("return from thread_func_nic_rx \n");
 	return NULL;
 }
@@ -797,28 +889,27 @@ thread_func_nic_tx(void *arg)
                     void *obj;
                     if (mpmc_queue_pull(local_dest_queue[k], &obj) != NULL) {
                         struct burst_tx *btx = (struct burst_tx *)obj;
+						// printf("addr: %d, len: %d \n", btx->addr, btx->len);
                         btx_collector->len[btx_index] = btx->len;
 						btx_collector->addr[btx_index] = btx->addr;
                         free(obj);
 
-                        btx_index++;
-                        btx_collector->n_pkts = btx_index;
-
-						printf("addr: %d, len: %d \n", btx_collector->addr[btx_index], btx_collector->len[btx_index]);
-
+						// printf("addr: %d, len: %d \n", btx_collector->addr[btx_index], btx_collector->len[btx_index]);
 						// u8 *pkt = xsk_umem__get_data(port_tx->params.bp->addr, btx_collector->addr[btx_index]);
 						// print_pkt_info(pkt, btx_collector->len[btx_index]);
+                        btx_index++;
+                        btx_collector->n_pkts = btx_index;
 						
                     }
                 }
             } else {
                 printf("local_dest_queue is NULL \n");
             }
-            // if (btx_index)
-            // {
-            //     // printf("there are packets to NIC tx \n");
-            //     port_tx_burst_collector_nic(port_tx, btx_collector, 0, 0);
-            // } 
+            if (btx_index)
+            {
+                // printf("there are packets to NIC tx \n");
+                port_tx_burst_collector_nic(port_tx, btx_collector, 0, 0);
+            } 
         
             btx_collector->n_pkts = 0;
         }

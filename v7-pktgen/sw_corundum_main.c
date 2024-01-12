@@ -571,11 +571,14 @@ int main(int argc, char **argv)
 		t->ports_rx[0] = ports[start_index_for_veth_ports]; //veth
 		start_index_for_veth_ports = start_index_for_veth_ports + 1;
 
-		for (v=0; v < NUM_OF_PER_DEST_QUEUES; v++) 
-		{
-			t->local_dest_queue_array[v] = local_per_dest_queue[v];
-			// t->transit_local_dest_queue_array[v] = transit_local_per_dest_queue[v];
-		}
+		t->local_dest_queue_array[0] = local_per_dest_queue[v];
+		v++;
+
+		// for (v=0; v < NUM_OF_PER_DEST_QUEUES; v++) 
+		// {
+		// 	t->local_dest_queue_array[v] = local_per_dest_queue[v];
+		// 	// t->transit_local_dest_queue_array[v] = transit_local_per_dest_queue[v];
+		// }
 		t->n_ports_rx = 1;
 	}
 
@@ -624,26 +627,29 @@ int main(int argc, char **argv)
 	int nix_rx_end = n_nic_ports * 2;
 
 	//START NIC RX THREADS
-	// for (i = nic_tx_thread_count; i < total_nic_threads; i++)
-	// {
-	// 	int status;
-	// 	status = pthread_create(&threads[i],
-	// 								NULL,
-	// 								thread_func_nic_rx,
-	// 								&thread_data[i]);
-	// 	printf("Create NIC RX thread %d: %d \n", i, thread_data[i].cpu_core_id);
-	// }
-
-	//START VETH RX THREADS
-	for (i = veth_rx_threads_start_index; i < veth_rx_threads_end_point; i++)
+	for (i = nic_tx_thread_count; i < total_nic_threads; i++)
 	{
 		int status;
 		status = pthread_create(&threads[i],
-								NULL,
-								thread_func_veth_rx,
-								&thread_data[i]);
-		printf("Create VETH RX thread %d: %d \n", i, thread_data[i].cpu_core_id);
+									NULL,
+									thread_func_nic_rx,
+									&thread_data[i]);
+		printf("Create NIC RX thread %d: %d \n", i, thread_data[i].cpu_core_id);
+	}
 
+	if (running_time == 2)
+	{
+		//START VETH RX THREADS
+		for (i = veth_rx_threads_start_index; i < veth_rx_threads_end_point; i++)
+		{
+			int status;
+			status = pthread_create(&threads[i],
+									NULL,
+									thread_func_veth_rx,
+									&thread_data[i]);
+			printf("Create VETH RX thread %d: %d \n", i, thread_data[i].cpu_core_id);
+
+		}
 	}
 
 	//START VETH TX THREADS
@@ -666,7 +672,7 @@ int main(int argc, char **argv)
 
 	// read_time();
 
-	time_t secs = (time_t)running_time; // 10 minutes (can be retrieved from user's input)
+	// time_t secs = (time_t)running_time; // 10 minutes (can be retrieved from user's input)
 	time_t startTime = time(NULL);
 
 	struct timespec time_pps;

@@ -32,14 +32,14 @@ static void gen_eth_hdr_data(void)
                         sizeof(struct iphdr) +
                         sizeof(struct udphdr));
 
-	printf("HELLO  1++++++++++++++++++\n");
+	// printf("HELLO  1++++++++++++++++++\n");
     
     /* ethernet header */
     memcpy(eth_hdr->h_dest, &opt_txdmac, ETH_ALEN);
     memcpy(eth_hdr->h_source, &opt_txsmac, ETH_ALEN);
     eth_hdr->h_proto = htons(ETH_P_IP);
 
-	printf("HELLO  2++++++++++++++++++\n");
+	// printf("HELLO  2++++++++++++++++++\n");
 
     /* IP header */
 	ip_hdr->version = IPVERSION;
@@ -57,7 +57,7 @@ static void gen_eth_hdr_data(void)
 	// ip_hdr->check = ip_fast_csum((const void *)ip_hdr, ip_hdr->ihl);
     // compute_ip_checksum(ip_hdr);
 
-	printf("HELLO  3++++++++++++++++++\n");
+	// printf("HELLO  3++++++++++++++++++\n");
 
     /* UDP header */
 	udp_hdr->source = htons(0x1000);
@@ -70,7 +70,7 @@ static void gen_eth_hdr_data(void)
 
 	/* UDP header checksum */
 	udp_hdr->check = 0;
-	printf("HELLO  4++++++++++++++++++\n");
+	// printf("HELLO  4++++++++++++++++++\n");
 	// udp_hdr->check = udp_csum(ip_hdr->saddr, ip_hdr->daddr, UDP_PKT_SIZE,
 	// 			  IPPROTO_UDP, (u16 *)udp_hdr);
     // unsigned short *ipPayload = (pkt_data +
