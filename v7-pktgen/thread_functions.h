@@ -473,13 +473,13 @@ thread_func_veth_rx(void *arg)
 	// gen_eth_hdr_data(t->src_port_pkt_gen_2, t->dst_port_pkt_gen, t->pkt_index_2);
 	// printf("HELLO after gen_eth_hdr_data++++++++++++++++++\n");
 
-	// int pktindex[2] = {t->pkt_index, t->pkt_index_2};
+	int pktindex[2] = {t->pkt_index, t->pkt_index_2};
 
 	// for (x = 0; x < 1; x++)
 	int p_index=0;
     while (!t->quit)
 	{
-		// p_index = p_index ^= 1;
+		p_index = p_index ^= 1;
         struct port *fake_port_rx = t->ports_rx[0]; //fake port just to get slabs
 		if (fake_port_rx != NULL) {
 			u32 n_pkts = bcache_cons_check(fake_port_rx->bc, MAX_BURST_RX);
@@ -499,6 +499,7 @@ thread_func_veth_rx(void *arg)
 				u64 pkt_addr = bcache_cons(fake_port_rx->bc);
 				if (fake_port_rx->bc->bp != NULL)
 				{
+					// memcpy(xsk_umem__get_data(fake_port_rx->bc->bp->addr, pkt_addr), pkt_data[pktindex[p_index]], PKT_SIZE);
 					memcpy(xsk_umem__get_data(fake_port_rx->bc->bp->addr, pkt_addr), pkt_data[t->pkt_index], PKT_SIZE);
 					// print_pkt_info(xsk_umem__get_data(fake_port_rx->bc->bp->addr, pkt_addr), PKT_SIZE);
 
