@@ -14,7 +14,7 @@ static void *memset32_htonl(void *dest, u32 val, u32 size)
 	return dest;
 }
 
-static void gen_eth_hdr_data(void)
+static void gen_eth_hdr_data(u16 src_port, u16 dst_port)
 {
     struct pktgen_hdr *pktgen_hdr;
 	struct udphdr *udp_hdr;
@@ -60,8 +60,10 @@ static void gen_eth_hdr_data(void)
 	// printf("HELLO  3++++++++++++++++++\n");
 
     /* UDP header */
-	udp_hdr->source = htons(0x1000);
-	udp_hdr->dest = htons(0x1000);
+	// udp_hdr->source = htons(0x1000);
+	// udp_hdr->dest = htons(0x1000);
+	udp_hdr->source = htons(src_port);
+	udp_hdr->dest = htons(dst_port);
 	udp_hdr->len = htons(UDP_PKT_SIZE);
 
     /* UDP data */

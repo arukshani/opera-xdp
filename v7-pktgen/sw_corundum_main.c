@@ -564,6 +564,8 @@ int main(int argc, char **argv)
 	int veth_rx_threads_end_point = total_nic_threads + veth_port_count;
 	int v = 0;
 	start_index_for_veth_ports  = n_nic_ports;
+	u16 src_port = 4000;
+	u16 dst_port = 5000;
 	for (i = veth_rx_threads_start_index; i < veth_rx_threads_end_point; i++)
 	{
 		struct thread_data *t = &thread_data[i];
@@ -579,6 +581,10 @@ int main(int argc, char **argv)
 		// 	t->local_dest_queue_array[v] = local_per_dest_queue[v];
 		// 	// t->transit_local_dest_queue_array[v] = transit_local_per_dest_queue[v];
 		// }
+		t->src_port_pkt_gen = src_port;
+		t->dst_port_pkt_gen = dst_port;
+		src_port = src_port + 10;
+		dst_port = dst_port + 20;
 		t->n_ports_rx = 1;
 	}
 
@@ -637,7 +643,7 @@ int main(int argc, char **argv)
 		printf("Create NIC RX thread %d: %d \n", i, thread_data[i].cpu_core_id);
 	}
 
-	if (running_time == 2)
+	if (running_time == 2) //run the packet gen
 	{
 		//START VETH RX THREADS
 		for (i = veth_rx_threads_start_index; i < veth_rx_threads_end_point; i++)

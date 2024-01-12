@@ -248,8 +248,8 @@ struct burst_rx {
 // };
 
 struct burst_tx_collector {
-	u64 addr[MAX_BURST_TX];
-	u32 len[MAX_BURST_TX];
+	u64 addr[256];
+	u32 len[256];
 	// u8 pkt[MAX_BURST_TX][XSK_UMEM__DEFAULT_FRAME_SIZE];
 	u32 n_pkts;
 };
@@ -288,6 +288,8 @@ struct thread_data {
 	int assigned_queue_count;
 	struct mpmc_queue *transit_local_dest_queue_array[NUM_OF_PER_DEST_QUEUES];
 	struct mpmc_queue *transit_veth_side_queue_array[13];
+	u16 src_port_pkt_gen;
+	u16 dst_port_pkt_gen;
 };
 
 static pthread_t threads[MAX_THREADS];

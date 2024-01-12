@@ -459,7 +459,7 @@ thread_func_veth_rx(void *arg)
 	// 	local_dest_queue[x] = t->local_dest_queue_array[x];
 	// 	// transit_local_dest_queue[x] = t->transit_local_dest_queue_array[x];
 	// }
-	gen_eth_hdr_data();
+	gen_eth_hdr_data(t->src_port_pkt_gen, t->dst_port_pkt_gen);
 	// printf("HELLO after gen_eth_hdr_data++++++++++++++++++\n");
 
 	// for (x = 0; x < 1; x++)
@@ -907,6 +907,10 @@ thread_func_nic_tx(void *arg)
             }
             if (btx_index)
             {
+				// if(btx_index < 20) 
+				// {
+				// 	printf("btx_index: %d \n", btx_index);
+				// }
                 // printf("there are packets to NIC tx \n");
                 port_tx_burst_collector_nic(port_tx, btx_collector, 0, 0);
             } 
