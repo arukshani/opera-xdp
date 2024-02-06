@@ -5,6 +5,7 @@ import socket
 def get_worker_mac():
     remoteCmd = './get_mac.sh'
     stdout = subprocess.run(remoteCmd, shell=True, stdout=subprocess.PIPE).stdout.decode('utf-8').strip()
+    print(stdout)
     hex_val_lan_ip="0x{}".format(binascii.hexlify(socket.inet_aton(stdout.partition(',')[0])).decode('ascii'))
     stdout = stdout + ",{}".format(hex_val_lan_ip)
     # print(stdout)

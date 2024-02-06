@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
 
-USER_TARGETS   := sw_corundum_1
+USER_TARGETS   := sw_corundum_2
 BPF_TARGETS    := veth_kern
 BPF_TARGETS    += nic_kern
 

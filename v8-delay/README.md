@@ -104,4 +104,4 @@ sudo ethtool -N enp175s0np1 flow-type udp4 dst-port 8888 action 4
 ```
 
 sudo taskset --cpu-list 18 ./sw_corundum_1 10.0.0.1 120 1 1 config/node2.csv
-sudo taskset --cpu-list 18 ./sw_corundum_1 10.0.0.2 120 1 1 config/node1.csv
+sudo taskset --cpu-list 18 ./sw_corundum_1 10.1.0.1 120 1 1 config/node1.csv

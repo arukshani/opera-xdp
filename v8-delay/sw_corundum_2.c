@@ -703,7 +703,7 @@ int main(int argc, char **argv)
 // #if DEBUG_PAUSE_Q == 1
 	// int z;
 	FILE *fpt;
-	fpt = fopen("/opt/timestamp_test/logs/opera/udp_af_xdp_send_l1.csv", "w+");
+	fpt = fopen("/opt/timestamp_test/logs/opera/udp_af_xdp_recv_l2.csv", "w+");
 	fprintf(fpt, "seq,slot,time_part_sec,time_part_nsec\n");
 	for (z = 0; z < send_time_index; z++)
 	{

@@ -18,7 +18,7 @@ sudo apt-get -y install m4
 #Get interface 
 # NODE_INTERFACE=$(ifconfig | grep -B1 "inet $1" | awk '$1!="inet" && $1!="--" {print $1}')
 # NODE_INTERFACE=${NODE_INTERFACE::-1}
-NODE_INTERFACE=enp175s0np1
+NODE_INTERFACE=enp24s0np0
 # sudo ip link set $NODE_INTERFACE mtu 3490
 
 echo 2| sudo tee /sys/class/net/$NODE_INTERFACE/napi_defer_hard_irqs

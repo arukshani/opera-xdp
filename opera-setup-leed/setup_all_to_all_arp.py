@@ -6,7 +6,8 @@ import logging
 import argparse
 
 # NSes = ["blue", "red", "ns12", "ns13", "ns15", "ns16", "ns17", "ns18", "ns19", "ns20", "ns21", "ns22", "ns23", "ns24"]
-NSes = ["ns1", "ns2", "ns3", "ns4", "ns5", "ns6", "ns7", "ns8"]
+# NSes = ["ns1", "ns2", "ns3", "ns4", "ns5", "ns6", "ns7", "ns8"]
+NSes = ["ns1"]
 
 def add_arp_records(filename):
     arp_info = pd.read_csv(filename, header=None)

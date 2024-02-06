@@ -30,9 +30,11 @@ python3 setup_all_to_all_arp.py configs/NSleed-01.csv //node2
 python3 setup_all_to_all_arp.py configs/NSleed-02.csv //node1
 
 sudo ethtool -L enp175s0np1 combined 1
-sudo ethtool -L enp175s0np1 rx 1
-sudo ethtool -L enp175s0np1 tx 1
+sudo ethtool -L enp24s0np0 rx 256
+sudo ethtool -L enp24s0np0 tx 256
 sudo ./set_irq_affinity.sh enp175s0np1
+
+enp24s0np0
 
 
 ```

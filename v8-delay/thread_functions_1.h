@@ -247,7 +247,7 @@ static void process_rx_packet(void *data, struct port_params *params, uint32_t l
 
     if (prefix(OUTER_VETH_PREFIX, params->iface))
 	{
-		printf("From VETH \n");
+		// printf("From VETH \n");
 		struct iphdr *outer_iphdr;
 		struct ethhdr *outer_eth_hdr;
 
@@ -272,6 +272,10 @@ static void process_rx_packet(void *data, struct port_params *params, uint32_t l
 					    sizeof(struct ethhdr) +
 					    sizeof(struct iphdr));
 			udp_source = ((inner_udp_hdr->source ^ inner_udp_hdr->dest) | 0xc000);
+			send_seq[send_time_index]= atoi(data +
+					    sizeof(struct ethhdr) +
+					    sizeof(struct iphdr) +
+						sizeof(struct udphdr));
 
 		} else if (inner_ip_hdr_tmp->protocol == IPPROTO_TCP) 
 		{
@@ -284,9 +288,19 @@ static void process_rx_packet(void *data, struct port_params *params, uint32_t l
 					    sizeof(struct iphdr));
 			udp_source = ((inner_tcp_hdr->source ^ inner_tcp_hdr->dest) | 0xc000);
 			
-		} else
+		} else if (inner_ip_hdr_tmp->protocol == IPPROTO_ICMP) 
+		{
+			struct icmphdr *icmp_hdr = (struct udphdr *)(data +
+					    sizeof(struct ethhdr) +
+					    sizeof(struct iphdr));
+			send_seq[send_time_index]=htons(icmp_hdr->un.echo.sequence);
+			// printf("icmp seq: %d \n", htons(icmp_hdr->un.echo.sequence));
+			udp_source = htons(0xC008);
+		}
+		else
 		{
 			udp_source = htons(0xC008);
+			
 		}
 
 		int olen = 0;
@@ -336,10 +350,10 @@ static void process_rx_packet(void *data, struct port_params *params, uint32_t l
 		bytes[1] = (inner_ip_hdr_tmp->daddr >> 8) & 0xFF;
 		bytes[2] = (inner_ip_hdr_tmp->daddr >> 16) & 0xFF;
 		bytes[3] = (inner_ip_hdr_tmp->daddr >> 24) & 0xFF;   
-		printf("%d.%d.%d.%d\n", bytes[0], bytes[1], bytes[1], bytes[2]);
-		// snprintf(dest_char, 16, "%d.%d.%d.%d", bytes[0], bytes[1], bytes[2], 1); 
+		// printf("%d.%d.%d.%d\n", bytes[0], bytes[1], bytes[2], 1);
+		snprintf(dest_char, 16, "%d.%d.%d.%d", bytes[0], bytes[1], bytes[2], 1); 
 		//Following line is important. that determines the destination ip from namespace ip
-		snprintf(dest_char, 16, "%d.%d.%d.%d", bytes[0], bytes[1], bytes[1], bytes[2]); //IMP:***construct dest 
+		// snprintf(dest_char, 16, "%d.%d.%d.%d", bytes[0], bytes[1], bytes[1], bytes[2]); //IMP:***construct dest 
 		struct sockaddr_in construct_dest_ip;
 		inet_aton(dest_char, &construct_dest_ip.sin_addr);
 
@@ -347,11 +361,25 @@ static void process_rx_packet(void *data, struct port_params *params, uint32_t l
 		struct ip_set *dest_ip_index = mg_map_get(&ip_table, construct_dest_ip.sin_addr.s_addr);
 		// printf("dest_ip_index->index: %d \n", dest_ip_index->index);
 		// struct ip_set *dest_ip_index = mg_map_get(&ip_table, inner_ip_hdr_tmp->daddr);
-		struct mac_addr *dest_mac_val = mg_map_get(&mac_table, dest_ip_index->index);
-		struct ip_set *ns_ip_index = mg_map_get(&ns_ip_table, inner_ip_hdr_tmp->daddr);
+		// struct mac_addr *dest_mac_val = mg_map_get(&mac_table, dest_ip_index->index);
+		// if (dest_mac_val == NULL)
+		// {
+		// 	printf("dest_mac_val is NULL \n");
+		// }
+		// struct ip_set *ns_ip_index = mg_map_get(&ns_ip_table, inner_ip_hdr_tmp->daddr);
+		// if (ns_ip_index == NULL)
+		// {
+		// 	printf("ns_ip_index is NULL \n");
+		// }
+		// printf("ns_ip_index->index: %d \n", ns_ip_index->index);
 		// return_val->ring_buf_index = dest_ip_index->index - 1;
-		return_val->ring_buf_index = ns_ip_index->index - 1;
-		ether_addr_copy_assignment(outer_eth_hdr->h_dest, dest_mac_val->bytes);
+		// return_val->ring_buf_index = ns_ip_index->index - 1;
+		return_val->ring_buf_index = 0;
+
+		//de:ad:be:ef:ca:fe
+		unsigned char f_dst_mac[ETH_ALEN+1] = { 0xde, 0xad, 0xbe, 0xef, 0xca, 0xfe};
+		__builtin_memcpy(outer_eth_hdr->h_dest, f_dst_mac, sizeof(outer_eth_hdr->h_dest));
+		// ether_addr_copy_assignment(outer_eth_hdr->h_dest, dest_mac_val->bytes);
 
 		outer_eth_hdr->h_proto = htons(ETH_P_IP);
 
@@ -362,7 +390,7 @@ static void process_rx_packet(void *data, struct port_params *params, uint32_t l
 		outer_iphdr->protocol = IPPROTO_UDP; //new
 		outer_iphdr->tot_len = bpf_htons(olen + bpf_ntohs(inner_ip_hdr_tmp->tot_len));
 		outer_iphdr->daddr = construct_dest_ip.sin_addr.s_addr;
-		printf("outer_iphdr->daddr %d \n", outer_iphdr->daddr);
+		// printf("outer_iphdr->daddr %d \n", outer_iphdr->daddr);
 
 		//new
 		struct udphdr *udp_hdr;
@@ -406,8 +434,12 @@ static void process_rx_packet(void *data, struct port_params *params, uint32_t l
 // 		timestamp_arr[time_index] = now;
 // 		time_index++;
 // #endif
-		printf("From NIC \n");
-		printf("src_ip: %d \n", src_ip);
+		// printf("From NIC \n");
+		// printf("src_ip: %d \n", src_ip);
+
+		recv_slot[recv_time_index] = 2;
+		recv_timestamp_arr[recv_time_index] = now;
+		
 		
 
 		struct ethhdr *eth = (struct ethhdr *)data;
@@ -432,10 +464,30 @@ static void process_rx_packet(void *data, struct port_params *params, uint32_t l
 		
 
 		struct iphdr *inner_ip_hdr = (struct iphdr *)(inner_eth + 1);
+		if (inner_ip_hdr->protocol == IPPROTO_ICMP) 
+		{
+			struct icmphdr *icmp_hdr = (struct udphdr *)(data +
+					    sizeof(struct ethhdr) +
+					    sizeof(struct iphdr));
+			recv_seq[recv_time_index]=htons(icmp_hdr->un.echo.sequence);
+			// printf("recv_seq: %d \n", htons(icmp_hdr->un.echo.sequence));
+			recv_time_index++;
+		}
 
-		printf("outer_ip_hdr->daddr: %d \n", outer_ip_hdr->daddr);
-		printf("outer_ip_hdr->saddr: %d \n", outer_ip_hdr->saddr);
-		printf("inner_ip_hdr->daddr: %d \n", inner_ip_hdr->daddr);
+		if (inner_ip_hdr->protocol == IPPROTO_UDP) 
+		{
+			
+			recv_seq[recv_time_index]=atoi((struct udphdr *)(data +
+					    sizeof(struct ethhdr) +
+					    sizeof(struct iphdr) +
+						sizeof(struct udphdr)));
+			// printf("recv_seq: %d \n", htons(icmp_hdr->un.echo.sequence));
+			recv_time_index++;
+		}
+
+		// printf("outer_ip_hdr->daddr: %d \n", outer_ip_hdr->daddr);
+		// printf("outer_ip_hdr->saddr: %d \n", outer_ip_hdr->saddr);
+		// printf("inner_ip_hdr->daddr: %d \n", inner_ip_hdr->daddr);
 
 		// if (src_ip != (inner_ip_hdr->daddr))
 		if (src_ip != (outer_ip_hdr->daddr))
@@ -474,7 +526,7 @@ static void process_rx_packet(void *data, struct port_params *params, uint32_t l
 		}
 		else
 		{
-			printf("IS destined for local node \n");
+			// printf("IS destined for local node \n");
 			return_val->which_veth = greh->flags;
 
 			// send it to local veth
@@ -560,6 +612,7 @@ static void process_rx_packet_with_filter(void *data, struct port_params *params
 		} else
 		{
 			udp_source = htons(0xC008);
+			
 		}
 
 		int olen = 0;
@@ -826,7 +879,7 @@ thread_func_veth(void *arg)
 			continue;
 		}
 
-		printf("veth rx n_pkts: %d \n", n_pkts);
+		// printf("veth rx n_pkts: %d \n", n_pkts);
 
 		/* Process & TX. */
 		for (j = 0; j < n_pkts; j++)
@@ -937,6 +990,9 @@ thread_func_veth_to_nic_tx(void *arg)
 			if (btx_index)
 			{
 				// printf("There are packets from queue %d to nic tx \n", k);
+				send_slot[send_time_index] = 1;
+				send_timestamp_arr[send_time_index] = now;
+				send_time_index++;
 				port_tx_burst_collector(port_tx, btx_collector, 0, 0);
 			} 
 		

@@ -1,7 +1,8 @@
 #!/bin/bash
 
-NODE_IN=enp175s0np1
-lan_addr=$(ip -f inet addr show enp175s0np1 | awk '/inet / {print substr($2, 1, length($2)-3)}')
+NODE_IN=enp24s0np0
+# lan_addr=$(ip -f inet addr show enp24s0np0 | awk '/inet / {print substr($2, 1, length($2)-3)}')
+lan_addr=$(ip -f inet addr show enp24s0np0 | awk '/inet / {print substr($2, 1, length($2)-2)}')
 
 #Get veth mac
 # VETH0_MAC=$(sudo ip netns exec blue ifconfig veth0 | awk '/ether/ {print $2}')
@@ -19,12 +20,12 @@ NODE_MAC=$(ip link show $NODE_IN | awk '/ether/ {print $2}')
 # # echo $PTP_IP
 # PTP_IN=$(ifconfig | grep -B1 "inet $PTP_IP" | awk '$1!="inet" && $1!="--" {print $1}')
 # PTP_IN=${PTP_IN::-1}
-PTP_IN=eno1
+PTP_IN=enp24s0np0
 
 # enp65s0f0np0 /dev/ptp2
 # enp65s0f1np1 /dev/ptp3
 
-PTP_CLOCK="/dev/ptp0"
+PTP_CLOCK="/dev/ptp2"
 
 # if [[ $PTP_IN = "enp65s0f0np0" ]]; then
 #     PTP_CLOCK="/dev/ptp2"
