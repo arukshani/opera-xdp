@@ -2,7 +2,7 @@
 
 sudo apt-get -y update
 cd /opt
-git clone https://github.com/arukshani/opera-xdp.git
+# git clone https://github.com/arukshani/opera-xdp.git
 sudo apt-get -y install clang llvm libelf-dev libpcap-dev gcc-multilib build-essential
 sudo apt-get -y install linux-tools-$(uname -r)
 sudo apt-get -y install linux-headers-$(uname -r)
