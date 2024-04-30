@@ -1,8 +1,8 @@
 #!/bin/sh
 
 sudo apt-get -y update
-# cd /opt
-# git clone https://github.com/arukshani/bpf-examples.git 
+cd /opt
+git clone https://github.com/arukshani/opera-xdp.git
 sudo apt-get -y install clang llvm libelf-dev libpcap-dev gcc-multilib build-essential
 sudo apt-get -y install linux-tools-$(uname -r)
 sudo apt-get -y install linux-headers-$(uname -r)
@@ -20,8 +20,8 @@ sudo apt-get -y install htop
 # NODE_INTERFACE=${NODE_INTERFACE::-1}
 NODE_INTERFACE=enp202s0f0np0
 
-# echo 2| sudo tee /sys/class/net/$NODE_INTERFACE/napi_defer_hard_irqs
-# echo 1000 | sudo tee /sys/class/net/$NODE_INTERFACE/gro_flush_timeout
+echo 2| sudo tee /sys/class/net/$NODE_INTERFACE/napi_defer_hard_irqs
+echo 1000 | sudo tee /sys/class/net/$NODE_INTERFACE/gro_flush_timeout
 
 sudo ip netns add blue
 sudo ip link add veth0 type veth peer name veth1
