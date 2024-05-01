@@ -1,6 +1,6 @@
 ```
 sudo ip netns exec blue bash
-sudo ethtool -L ens4 combined 16
+sudo ethtool -L enp202s0f0np0 combined 6
 
 sudo ethtool -G ens4 rx 2048
 sudo ethtool -G ens4 tx 2048
