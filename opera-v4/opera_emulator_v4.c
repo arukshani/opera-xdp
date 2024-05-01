@@ -2392,9 +2392,9 @@ int main(int argc, char **argv)
 	u64 ns0;
 	clock_gettime(CLOCK_MONOTONIC, &time_pps);
 	ns0 = time_pps.tv_sec * 1000000000UL + time_pps.tv_nsec;
-	while (time(NULL) - startTime < secs)
-	{
-		read_time();
+	// while (time(NULL) - startTime < secs)
+	// {
+		// read_time();
 		// u64 ns1, ns_diff;
 		// sleep(1);
 		// clock_gettime(CLOCK_MONOTONIC, &time_pps);
@@ -2403,7 +2403,14 @@ int main(int argc, char **argv)
 		// ns0 = ns1;
 
 		// print_port_stats_all(ns_diff);
+	// }
+
+	for ( ; !quit; ) 
+	{
+		sleep(1);
 	}
+
+
 
 	/* Threads completion. */
 	printf("Quit.\n");
