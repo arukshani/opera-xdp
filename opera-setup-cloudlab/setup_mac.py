@@ -8,7 +8,7 @@ def get_worker_mac():
     # print(stdout)
     hex_val_lan_ip="0x{}".format(binascii.hexlify(socket.inet_aton(stdout.partition(',')[0])).decode('ascii'))
     stdout = stdout + ",{}".format(hex_val_lan_ip)
-    with open("/opt/bpf-examples/opera-setup-cloudlab/all_worker_info.csv", "a") as myfile:
+    with open("/opt/opera-xdp/opera-setup-cloudlab/all_worker_info.csv", "a") as myfile:
         myfile.write(stdout + "\n")
 
     

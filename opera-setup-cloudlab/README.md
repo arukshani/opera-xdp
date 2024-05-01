@@ -12,6 +12,7 @@ cd bpf-examples/opera-setup-cloudlab/
 
 ### Write mac details to file
 ```
+ls /sys/class/net/eno12399np0/device/ptp/
 python3 setup_mac.py
 ```
 
