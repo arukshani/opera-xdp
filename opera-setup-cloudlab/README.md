@@ -24,6 +24,8 @@ sudo ./get_veth_info.sh -n 13
 scp arp records
 python3 setup-arp.py filename
 
+scp -o StrictHostKeyChecking=no node-1:/tmp/node-1.rr65.rotornet-pg0.clemson.cloudlab.us.csv .
+scp -o StrictHostKeyChecking=no node-2:/tmp/node-2.rr65.rotornet-pg0.clemson.cloudlab.us.csv .
 
 sudo ./set_irq_affinity.sh enp202s0f0np0
 
