@@ -2388,28 +2388,28 @@ int main(int argc, char **argv)
 	// time_t secs = (time_t)running_time; // 10 minutes (can be retrieved from user's input)
 	// time_t startTime = time(NULL);
 
-	// struct timespec time_pps;
-	// u64 ns0;
-	// clock_gettime(CLOCK_MONOTONIC, &time_pps);
-	// ns0 = time_pps.tv_sec * 1000000000UL + time_pps.tv_nsec;
-	// while (time(NULL) - startTime < secs)
-	// {
-		// read_time();
-		// u64 ns1, ns_diff;
-		// sleep(1);
-		// clock_gettime(CLOCK_MONOTONIC, &time_pps);
-		// ns1 = time_pps.tv_sec * 1000000000UL + time_pps.tv_nsec;
-		// ns_diff = ns1 - ns0;
-		// ns0 = ns1;
-
-		// print_port_stats_all(ns_diff);
-	// }
-
-	for ( ; !quit; ) 
+	struct timespec time_pps;
+	u64 ns0;
+	clock_gettime(CLOCK_MONOTONIC, &time_pps);
+	ns0 = time_pps.tv_sec * 1000000000UL + time_pps.tv_nsec;
+	while (time(NULL) - startTime < secs)
 	{
 		read_time();
-		// sleep(1);
+		u64 ns1, ns_diff;
+		sleep(1);
+		clock_gettime(CLOCK_MONOTONIC, &time_pps);
+		ns1 = time_pps.tv_sec * 1000000000UL + time_pps.tv_nsec;
+		ns_diff = ns1 - ns0;
+		ns0 = ns1;
+
+		print_port_stats_all(ns_diff);
 	}
+
+	// for ( ; !quit; ) 
+	// {
+	// 	read_time();
+	// 	// sleep(1);
+	// }
 
 
 
