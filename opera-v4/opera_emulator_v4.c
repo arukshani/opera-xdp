@@ -2385,8 +2385,8 @@ int main(int argc, char **argv)
 
 	// read_time();
 
-	// time_t secs = (time_t)running_time; // 10 minutes (can be retrieved from user's input)
-	// time_t startTime = time(NULL);
+	time_t secs = (time_t)running_time; // 10 minutes (can be retrieved from user's input)
+	time_t startTime = time(NULL);
 
 	struct timespec time_pps;
 	u64 ns0;
