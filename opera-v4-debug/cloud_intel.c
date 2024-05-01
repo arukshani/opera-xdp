@@ -1388,7 +1388,7 @@ static void process_rx_packet(void *data, struct port_params *params, uint32_t l
 	// if (is_veth == 0 || is_veth3 == 0)
     if (prefix( "veth", params->iface))
 	{
-		// printf("From VETH \n");
+		printf("From VETH \n");
 		struct iphdr *outer_iphdr;
 		// struct iphdr encap_outer_iphdr;
 		struct ethhdr *outer_eth_hdr;
@@ -1453,7 +1453,7 @@ static void process_rx_packet(void *data, struct port_params *params, uint32_t l
 		getRouteElement(route_table, dest_ip_index->index, topo, &mac_index);
 		struct mac_addr *dest_mac_val = mg_map_get(&mac_table, mac_index);
 		// ringbuf_t *dest_queue = mg_map_get(&dest_queue_table, mac_index);
-		// printf("dest_ip_index = %d, mac_index=%d \n", dest_ip_index->index, mac_index);
+		printf("dest_ip_index = %d, mac_index=%d \n", dest_ip_index->index, mac_index);
 		return_val->ring_buf_index = dest_ip_index->index - 1;
 
 		// Telemetry
@@ -2550,7 +2550,7 @@ int main(int argc, char **argv)
 
 		for (v=0; v < NUM_OF_PER_DEST_QUEUES; v++) 
 		{
-			printf("h,v: %d %d \n", h,v);
+			// printf("h,v: %d %d \n", h,v);
 			t->ring_bf_array[0][v] = ring_array[h][v];
 		}
 		// t->burst_tx_queue_array[0] = burst_tx_queue_veth[h];

@@ -131,4 +131,6 @@ sudo ethtool -g ens4
 apt-get install libpython2.7
 sudo apt-get install libatlas3-base
 
+sudo ethtool -L enp202s0f0np0 combined 6
+
 ```
