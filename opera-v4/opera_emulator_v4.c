@@ -2383,15 +2383,15 @@ int main(int argc, char **argv)
 	signal(SIGTERM, signal_handler);
 	signal(SIGABRT, signal_handler);
 
-	read_time();
+	// read_time();
 
-	time_t secs = (time_t)running_time; // 10 minutes (can be retrieved from user's input)
-	time_t startTime = time(NULL);
+	// time_t secs = (time_t)running_time; // 10 minutes (can be retrieved from user's input)
+	// time_t startTime = time(NULL);
 
-	struct timespec time_pps;
-	u64 ns0;
-	clock_gettime(CLOCK_MONOTONIC, &time_pps);
-	ns0 = time_pps.tv_sec * 1000000000UL + time_pps.tv_nsec;
+	// struct timespec time_pps;
+	// u64 ns0;
+	// clock_gettime(CLOCK_MONOTONIC, &time_pps);
+	// ns0 = time_pps.tv_sec * 1000000000UL + time_pps.tv_nsec;
 	// while (time(NULL) - startTime < secs)
 	// {
 		// read_time();
@@ -2407,7 +2407,8 @@ int main(int argc, char **argv)
 
 	for ( ; !quit; ) 
 	{
-		sleep(1);
+		read_time();
+		// sleep(1);
 	}
 
 
