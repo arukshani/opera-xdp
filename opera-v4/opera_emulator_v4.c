@@ -2290,7 +2290,7 @@ int main(int argc, char **argv)
 
 		for (v=0; v < NUM_OF_PER_DEST_QUEUES; v++) 
 		{
-			printf("h,v: %d %d \n", h,v);
+			// printf("h,v: %d %d \n", h,v);
 			t->ring_bf_array[0][v] = ring_array[h][v];
 		}
 		// t->burst_tx_queue_array[0] = burst_tx_queue_veth[h];
