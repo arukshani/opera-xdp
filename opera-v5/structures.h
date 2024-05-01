@@ -74,7 +74,7 @@ struct bpool_params {
 #define SCHED_PRI__DEFAULT	0
 
 #ifndef WORKER_INFO_CSV
-#define WORKER_INFO_CSV "/home/dathapathu/emulator/github_code/all_worker_info.csv"
+#define WORKER_INFO_CSV "/opt/opera-xdp/opera-setup-cloudlab/all_worker_info.csv"
 #endif
 
 #ifndef START_THREAD_CORE_ID
