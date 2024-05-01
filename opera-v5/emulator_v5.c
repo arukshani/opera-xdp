@@ -2069,8 +2069,8 @@ int main(int argc, char **argv)
 	}
 	
 	// n_threads = (n_nic_ports * 2) + (veth_port_count * 2);
-	TOTAL_NIC_THREADS = (n_nic_ports * 2);
-	n_threads = TOTAL_NIC_THREADS + (veth_port_count * 2); //8 threads for nic rx and tx (for all 16 nic queues)
+	int n_nic_threads = (n_nic_ports * 2);
+	n_threads = n_nic_threads + (veth_port_count * 2); //8 threads for nic rx and tx (for all 16 nic queues)
 	printf("Total number of rx and tx threads : %d \n", n_threads);
 
 	int thread_core_id = START_THREAD_CORE_ID;
@@ -2228,8 +2228,8 @@ int main(int argc, char **argv)
 	}
 
 	/* NIC TX Threads. */
-    int nic_tx_thread_count = TOTAL_NIC_THREADS/2;
-	int total_nic_threads = TOTAL_NIC_THREADS;
+    int nic_tx_thread_count = n_nic_threads/2;
+	int total_nic_threads = n_nic_threads;
 
 	// veth_count_per_nic_q = (veth_port_count + (n_nic_ports - 1)) / n_nic_ports;
 
