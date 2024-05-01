@@ -68,7 +68,7 @@ struct bpool_params {
 #endif
 
 #ifndef TOTAL_NIC_THREADS
-#define TOTAL_NIC_THREADS 8
+#define TOTAL_NIC_THREADS 12
 #endif
 
 #define SCHED_PRI__DEFAULT	0
