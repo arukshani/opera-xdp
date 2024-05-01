@@ -2394,15 +2394,15 @@ int main(int argc, char **argv)
 	ns0 = time_pps.tv_sec * 1000000000UL + time_pps.tv_nsec;
 	while (time(NULL) - startTime < secs)
 	{
-		// read_time();
-		u64 ns1, ns_diff;
-		sleep(1);
-		clock_gettime(CLOCK_MONOTONIC, &time_pps);
-		ns1 = time_pps.tv_sec * 1000000000UL + time_pps.tv_nsec;
-		ns_diff = ns1 - ns0;
-		ns0 = ns1;
+		read_time();
+		// u64 ns1, ns_diff;
+		// sleep(1);
+		// clock_gettime(CLOCK_MONOTONIC, &time_pps);
+		// ns1 = time_pps.tv_sec * 1000000000UL + time_pps.tv_nsec;
+		// ns_diff = ns1 - ns0;
+		// ns0 = ns1;
 
-		print_port_stats_all(ns_diff);
+		// print_port_stats_all(ns_diff);
 	}
 
 	/* Threads completion. */
@@ -2418,8 +2418,8 @@ int main(int argc, char **argv)
 	// printf("veth_rx_has_packet_counter %ld \n", veth_rx_has_packet_counter);
 	// printf("nic_tx_no_packet_counter %ld \n", nic_tx_no_packet_counter);
 	// printf("nic_tx_has_packet_counter %ld \n", nic_tx_has_packet_counter);
-	printf("nic_rx_no_packet_counter %ld \n", nic_rx_no_packet_counter);
-	printf("nic_rx_has_packet_counter %ld \n", nic_rx_has_packet_counter);
+	// printf("nic_rx_no_packet_counter %ld \n", nic_rx_no_packet_counter);
+	// printf("nic_rx_has_packet_counter %ld \n", nic_rx_has_packet_counter);
 
 	/* output each array element's value */
 
@@ -2438,18 +2438,18 @@ int main(int argc, char **argv)
 	// 	fclose(fpt);
 	// #endif
 
-#if DEBUG_PAUSE_Q == 1
-	int z;
-	FILE *fpt;
-	fpt = fopen("/tmp/opera_data.csv", "w+");
-	fprintf(fpt, "time_ns,time_part_sec,time_part_nsec\n");
-	for (z = 0; z < time_index; z++)
-	{
-		unsigned long now_ns = get_nsec(&timestamp_arr[z]);
-		fprintf(fpt, "%ld,%ld,%ld\n", now_ns, timestamp_arr[z].tv_sec, timestamp_arr[z].tv_nsec);
-	}
-	fclose(fpt);
-#endif
+// #if DEBUG_PAUSE_Q == 1
+// 	int z;
+// 	FILE *fpt;
+// 	fpt = fopen("/tmp/opera_data.csv", "w+");
+// 	fprintf(fpt, "time_ns,time_part_sec,time_part_nsec\n");
+// 	for (z = 0; z < time_index; z++)
+// 	{
+// 		unsigned long now_ns = get_nsec(&timestamp_arr[z]);
+// 		fprintf(fpt, "%ld,%ld,%ld\n", now_ns, timestamp_arr[z].tv_sec, timestamp_arr[z].tv_nsec);
+// 	}
+// 	fclose(fpt);
+// #endif
 
 	for (i = 0; i < n_threads; i++)
 	{
