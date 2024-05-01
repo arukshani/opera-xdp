@@ -74,7 +74,7 @@ struct bpool_params {
 #endif
 
 #ifndef START_THREAD_CORE_ID
-#define START_THREAD_CORE_ID 13
+#define START_THREAD_CORE_ID 33
 #endif
 
 struct burst_rx {
